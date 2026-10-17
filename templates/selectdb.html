@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Database - CARELINK</title>
+    
+    
+    <script type="module" src="{{ url_for('static', filename='js/auth_guard.js') }}"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    {% include 'navbar.html' %}
+
+    <main class="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full px-6 py-12">
+        
+        <div class="text-center space-y-2 mb-12">
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight uppercase">Select Registry Database</h1>
+            <p class="text-xs text-slate-500 max-w-md mx-auto font-medium">Choose a client registry system to access, view, or manage clinical records.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+            
+            <!-- ART CARD BUTTON -->
+            <button onclick="window.location.href='{{ url_for("art_dashboard_page") }}'" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-teal-500 text-left transition-all duration-300 flex flex-col justify-between h-56">
+                <div class="space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 border border-teal-100 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 18c0 1.1-4 2-9 2s-9-.9-9-2V6c0-1.1 4-2 9-2s9 .9 9 2Z"/>
+                            <path d="M20 12c0 1.1-4 2-9 2s-9-.9-9-2"/>
+                            <path d="M3 6v6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900 group-hover:text-teal-600 transition-colors uppercase tracking-wide">ART Registry</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Access PLHIV client database — monitor ART outcomes, viral load, and refill tracking.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-teal-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Open ART Registry &rarr;
+                </div>
+            </button>
+
+            <!-- PrEP CARD BUTTON -->
+            <button onclick="window.location.href='{{ url_for("prep_dashboard_page") }}'" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-500 text-left transition-all duration-300 flex flex-col justify-between h-56">
+                <div class="space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="m9 12 2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-wide">PrEP Registry</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Access PrEP client database — view regimens, serum creatinine, STI diagnoses, and refills.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Open PrEP Registry &rarr;
+                </div>
+            </button>
+
+        </div>
+    </main>
+
+    <footer class="text-center py-6 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-200 bg-white">
+        Developed by the MNE Team of LAKAN Network 2026. For the use of LAKAN Network only.[cite: 7]
+    </footer>
+
+</body>
+</html>

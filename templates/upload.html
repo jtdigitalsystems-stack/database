@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en" class="h-screen overflow-hidden">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Migration & Header Mapper Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS (xlsx) for in-browser Excel/CSV parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans h-screen flex flex-col overflow-hidden select-none relative">
+
+    {% include 'navbar.html' ignore missing %}
+
+    <!-- REAL-TIME MIGRATION PROGRESS OVERLAY -->
+    <div id="migration-progress-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-6 text-white space-y-6 animate-in fade-in duration-200">
+        <div class="w-16 h-16 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
+        
+        <div class="text-center space-y-1">
+            <h3 class="text-xl font-bold tracking-tight">Migrating Data Records...</h3>
+            <p class="text-xs text-slate-300">Synchronizing mapped patient records with facility database. Please do not exit or refresh.</p>
+        </div>
+
+        <!-- PROGRESS BAR & STATS BOX -->
+        <div class="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-2xl space-y-3">
+            <div class="flex justify-between items-center text-xs font-mono font-bold">
+                <span class="text-teal-400 uppercase tracking-wider">Progress</span>
+                <span id="progress-percentage-text" class="text-white">0%</span>
+            </div>
+
+            <!-- OUTER PROGRESS BAR TRACK -->
+            <div class="w-full bg-slate-700/60 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-600/50">
+                <div id="progress-bar-fill" class="bg-teal-500 h-full rounded-full transition-all duration-300 ease-out w-0 shadow-lg shadow-teal-500/50"></div>
+            </div>
+
+            <div class="flex justify-between items-center text-[11px] font-mono text-slate-400 pt-1">
+                <span>Migrated:</span>
+                <span id="progress-records-counter" class="text-teal-300 font-bold">0 / 0 Records</span>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-1 flex flex-col min-h-0 p-3 sm:p-4 space-y-3 overflow-hidden">
+        
+        <!-- HEADER STATUS BANNER -->
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="file-up" class="w-4 h-4"></i>
+                </div>
+                <div>
+                    <h1 id="node-upload-title" class="text-xs font-black uppercase text-teal-700 tracking-wider font-mono">
+                        Data Migration & Header Mapper
+                    </h1>
+                    <p class="text-[10px] text-slate-500 font-medium">Select source file columns using dropdown selectors for each target database field</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <span id="target-node-badge" class="bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-0.5 rounded text-[11px] font-bold font-mono uppercase">
+                    Node: Loading...
+                </span>
+            </div>
+        </div>
+
+        <!-- STEP 1: COLLAPSIBLE FILE SELECTION ZONE -->
+        <section class="bg-white border border-slate-200 rounded-xl shadow-sm flex-shrink-0 overflow-hidden">
+            <button type="button" onclick="toggleUploadAccordion()" class="w-full bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-200 text-xs font-bold uppercase text-slate-700 hover:bg-slate-100/70 transition">
+                <span class="flex items-center gap-1.5">
+                    <i data-lucide="upload-cloud" class="w-4 h-4 text-teal-600"></i>
+                    1. File Upload & Source Control
+                </span>
+                <div class="flex items-center gap-3">
+                    <span id="file-info-badge" class="text-[10px] font-mono text-slate-400 font-bold">No file loaded</span>
+                    <i id="upload-chevron-icon" data-lucide="chevron-up" class="w-4 h-4 text-slate-400 transition-transform"></i>
+                </div>
+            </button>
+
+            <div id="upload-section-body" class="p-3 space-y-3">
+                <div class="flex flex-col sm:flex-row items-center gap-3">
+                    <input type="file" id="input-file-uploader" accept=".csv, .xlsx, .xls" class="block w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:uppercase file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer">
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button type="button" onclick="autoMatchDropdowns()" id="btn-auto-match" disabled class="bg-indigo-50 text-indigo-300 border border-indigo-100 px-3 py-1 rounded-md text-xs font-bold uppercase transition flex items-center gap-1 cursor-not-allowed">
+                            <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Auto-Match
+                        </button>
+                        <button type="button" onclick="resetMapperWorkspace()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-md text-xs font-bold uppercase transition flex items-center gap-1">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STEP 2: DROPDOWN MAPPING WORKSPACE TABLE -->
+        <section id="mapper-workspace-zone" class="hidden flex-1 relative min-h-0 bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex flex-col overflow-hidden">
+            
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-2 flex-shrink-0">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="list-checks" class="w-4 h-4 text-indigo-600"></i>
+                    <h2 class="text-xs font-bold uppercase text-slate-800 tracking-wider">2. Map Destination DB Fields to Uploaded Headers</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="mapped-count-badge" class="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded">0 / 0 Mapped</span>
+                    <button type="button" onclick="generateDataPreview()" class="bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-md text-xs font-bold uppercase transition flex items-center gap-1">
+                        <i data-lucide="eye" class="w-3.5 h-3.5"></i> Preview
+                    </button>
+                    <button type="button" id="btn-execute-migration" onclick="executeBatchMigration()" disabled class="bg-slate-300 text-slate-500 px-3 py-1 rounded-md text-xs font-black uppercase transition cursor-not-allowed flex items-center gap-1">
+                        <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> Execute Migration
+                    </button>
+                </div>
+            </div>
+
+            <!-- SCROLLABLE DROPDOWN MAPPING TABLE -->
+            <div class="flex-1 overflow-y-auto border border-slate-200 rounded-lg bg-slate-50/50 min-h-0">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[10px] border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                            <th class="py-2.5 px-4 w-1/2">Destination DB Schema Field (System Target)</th>
+                            <th class="py-2.5 px-4 w-1/2">Uploaded File Header (Excel/CSV Column)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mapping-table-body" class="divide-y divide-slate-200 bg-white">
+                        <!-- Dynamic Schema Mapping Rows Render Here -->
+                    </tbody>
+                </table>
+            </div>
+
+        </section>
+
+        <!-- PREVIEW MODAL -->
+        <div id="preview-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-6">
+            <div class="bg-white w-full max-w-5xl max-h-[85vh] rounded-2xl border border-slate-200 p-6 shadow-2xl flex flex-col space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 class="text-sm font-bold text-slate-900 uppercase">Mapped Data Migration Preview (First 5 Rows)</h3>
+                    <button type="button" onclick="closePreviewModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                
+                <div class="flex-1 overflow-auto border border-slate-200 rounded-xl">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-600 sticky top-0">
+                            <tr id="preview-table-header"></tr>
+                        </thead>
+                        <tbody id="preview-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closePreviewModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold text-xs uppercase">Close Preview</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Facility label only. All database writes are performed server-side. -->
+    <script>
+      (async function loadFacilityLabel() {
+        try {
+          const response = await fetch('/api/firebase-config', {
+            method: 'GET', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || `Facility session unavailable (HTTP ${response.status}).`);
+          }
+          const name = data.facility_name || data.facility_id || 'Authenticated facility';
+          document.getElementById('node-upload-title').innerText = `${name} • Data Migration & Mapper`;
+          document.getElementById('target-node-badge').innerText = `Node: ${name}`;
+        } catch (error) {
+          console.error('Facility label initialization failed:', error);
+          document.getElementById('target-node-badge').innerText = 'Node: Session verification required';
+        }
+        if (window.lucide) window.lucide.createIcons();
+      })();
+    </script>
+
+    <!-- DROPDOWN HEADER MAPPER LOGIC WITH PROGRESS OVERLAY -->
+    <script>
+        let parsedFileRows = [];
+        let parsedSourceHeaders = [];
+
+        const TARGET_FIELDS_SCHEMA = [
+            // Identifiers & Demographics
+            { key: 'uic', label: 'UIC (Unique Identifier Code) *', required: true, collection: 'Demographics' },
+            { key: 'generated_serial_code', label: 'Client Code (Patient Code)', required: false, collection: 'Demographics' },
+            { key: 'firstName', label: 'First Name', required: false, collection: 'Demographics' },
+            { key: 'lastName', label: 'Last Name', required: false, collection: 'Demographics' },
+            { key: 'middleName', label: 'Middle Name', required: false, collection: 'Demographics' },
+            { key: 'suffix', label: 'Suffix', required: false, collection: 'Demographics' },
+            { key: 'sex', label: 'Sex Assigned at Birth', required: false, collection: 'Demographics' },
+            { key: 'kp', label: 'Key Population (KP)', required: false, collection: 'Demographics' },
+            { key: 'bday', label: 'Birthdate (YYYY-MM-DD)', required: false, collection: 'Demographics' },
+            { key: 'contactNumber', label: 'Contact Number', required: false, collection: 'Demographics' },
+            { key: 'emailAddress', label: 'Email Address', required: false, collection: 'Demographics' },
+            { key: 'address', label: 'Complete Address', required: false, collection: 'Demographics' },
+            { key: 'philhealthNumber', label: 'PhilHealth PIN', required: false, collection: 'Demographics' },
+            { key: 'ohasisUrl', label: 'OHASIS Reference Link', required: false, collection: 'Demographics' },
+
+            // Inception & Outcome
+            { key: 'inception', label: 'Client Inception Status (OPD/Trans-in/Referred)', required: false, collection: 'Demographics' },
+            { key: 'incDate', label: 'Inception Date', required: false, collection: 'Demographics' },
+            { key: 'incFrom', label: 'Inception Source', required: false, collection: 'Demographics' },
+            { key: 'outcome', label: 'ART Outcome (Active/LTFU/Deceased/Trans-out)', required: false, collection: 'Demographics' },
+            { key: 'outDate', label: 'Outcome Date', required: false, collection: 'Demographics' },
+            { key: 'outTo', label: 'Outcome Notes/Details', required: false, collection: 'Demographics' },
+            { key: 't0Date', label: 'HIV T0 Test Date', required: false, collection: 'Demographics' },
+            { key: 't0Result', label: 'HIV T0 Result', required: false, collection: 'Demographics' },
+
+            // Opportunistic Infections (OIs 1 to 5)
+            { key: 'oi_1_type', label: 'OI 1 Type/Name', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_1_date', label: 'OI 1 Diagnosis Date', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_2_type', label: 'OI 2 Type/Name', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_2_date', label: 'OI 2 Diagnosis Date', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_3_type', label: 'OI 3 Type/Name', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_3_date', label: 'OI 3 Diagnosis Date', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_4_type', label: 'OI 4 Type/Name', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_4_date', label: 'OI 4 Diagnosis Date', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_5_type', label: 'OI 5 Type/Name', required: false, collection: 'Demographics (OI Log)' },
+            { key: 'oi_5_date', label: 'OI 5 Diagnosis Date', required: false, collection: 'Demographics (OI Log)' },
+
+            // Clinical Prophylaxis & TB
+            { key: 'iptChecked', label: 'IPT Prophylaxis (True/False or YES/NO)', required: false, collection: 'Demographics' },
+            { key: 'iptStart', label: 'IPT Start Date', required: false, collection: 'Demographics' },
+            { key: 'iptEnd', label: 'IPT Completed Date', required: false, collection: 'Demographics' },
+            { key: 'cptChecked', label: 'CPT Prophylaxis (True/False or YES/NO)', required: false, collection: 'Demographics' },
+            { key: 'cptStart', label: 'CPT Start Date', required: false, collection: 'Demographics' },
+            { key: 'cptEnd', label: 'CPT Completed Date', required: false, collection: 'Demographics' },
+            { key: 'tbStatus', label: 'TB Status', required: false, collection: 'Demographics' },
+            { key: 'tbStart', label: 'TB Treatment Start Date', required: false, collection: 'Demographics' },
+            { key: 'tbEnd', label: 'TB Treatment Completed Date', required: false, collection: 'Demographics' },
+
+            // Confirmatory Lab
+            { key: 'confirmatoryStatus', label: 'Confirmatory Status (Pending/Done)', required: false, collection: 'Demographics' },
+            { key: 'confirmatoryResult', label: 'Confirmatory Result', required: false, collection: 'Demographics' },
+            { key: 'confirmatoryDate', label: 'Confirmatory Date', required: false, collection: 'Demographics' },
+            { key: 'confirmatoryCode', label: 'RHIVDA/Confirmatory Code', required: false, collection: 'Demographics' },
+
+            // PrEP Demographics & STIs (1 to 5)
+            { key: 'prepDate', label: 'PrEP Enrollment Date', required: false, collection: 'PrEP Demographics' },
+            { key: 'prepStatus', label: 'PrEP Status', required: false, collection: 'PrEP Demographics' },
+            { key: 'prepDosage', label: 'PrEP Intended Dosage', required: false, collection: 'PrEP Demographics' },
+            { key: 'prepRegimen', label: 'PrEP Regimen', required: false, collection: 'PrEP Demographics' },
+            { key: 'serumCreatinine', label: 'Serum Creatinine (mg/dL)', required: false, collection: 'PrEP Demographics' },
+            { key: 'creatinineClearance', label: 'Creatinine Clearance (mL/min)', required: false, collection: 'PrEP Demographics' },
+            { key: 'weight', label: 'Weight (kg)', required: false, collection: 'PrEP Demographics' },
+            { key: 'gahtToggle', label: 'GAHT Active (True/False)', required: false, collection: 'PrEP Demographics' },
+            { key: 'gahtSpecify', label: 'GAHT Details', required: false, collection: 'PrEP Demographics' },
+            { key: 'sti_1_name', label: 'STI 1 Name', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_1_date', label: 'STI 1 Diagnosis Date', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_2_name', label: 'STI 2 Name', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_2_date', label: 'STI 2 Diagnosis Date', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_3_name', label: 'STI 3 Name', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_3_date', label: 'STI 3 Diagnosis Date', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_4_name', label: 'STI 4 Name', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_4_date', label: 'STI 4 Diagnosis Date', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_5_name', label: 'STI 5 Name', required: false, collection: 'PrEP (STI Log)' },
+            { key: 'sti_5_date', label: 'STI 5 Diagnosis Date', required: false, collection: 'PrEP (STI Log)' },
+
+            // ART Registry Metrics
+            { key: 'artEnrollmentDate', label: 'ART Enrollment Date', required: false, collection: 'Registry' },
+            { key: 'artRegimen', label: 'ARV Regimen Type', required: false, collection: 'Registry' },
+            { key: 'artBy', label: 'ART Initiated By Staff', required: false, collection: 'Registry' },
+            { key: 'vlStatus', label: 'Viral Load Status', required: false, collection: 'Registry' },
+            { key: 'vlValue', label: 'Latest Viral Load Value', required: false, collection: 'Registry' },
+            { key: 'latestCd4Count', label: 'Latest CD4 Count', required: false, collection: 'Registry' },
+            { key: 'retentionStatus', label: 'Retention Status', required: false, collection: 'Registry' },
+            { key: 'dispenseDate', label: 'Last Dispense Date', required: false, collection: 'Registry' },
+            { key: 'pillsDispensed', label: '# Pills Dispensed', required: false, collection: 'Registry' },
+            { key: 'pillsRemaining', label: 'Remaining Pills Balance', required: false, collection: 'Registry' },
+            { key: 'nextRefillDate', label: 'Next Refill Date', required: false, collection: 'Registry' }
+        ];
+
+        document.getElementById('input-file-uploader').addEventListener('change', handleFileUpload);
+
+        function toggleUploadAccordion() {
+            const body = document.getElementById('upload-section-body');
+            const icon = document.getElementById('upload-chevron-icon');
+            if (!body || !icon) return;
+
+            body.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('file-info-badge').innerText = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    parsedFileRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                    if (parsedFileRows.length === 0) {
+                        alert("File is empty or contains no parseable data rows.");
+                        return;
+                    }
+
+                    parsedSourceHeaders = Object.keys(parsedFileRows[0]);
+
+                    renderMappingTable();
+
+                    document.getElementById('mapper-workspace-zone').classList.remove('hidden');
+                    document.getElementById('btn-auto-match').disabled = false;
+                    document.getElementById('btn-auto-match').className = "bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-xs font-bold uppercase transition flex items-center gap-1 cursor-pointer";
+                    
+                    toggleUploadAccordion();
+
+                    if (window.lucide) lucide.createIcons();
+
+                    autoMatchDropdowns();
+
+                } catch (err) {
+                    console.error("File Parse Error:", err);
+                    alert("Error parsing file. Please ensure it is a valid CSV or Excel spreadsheet.");
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function renderMappingTable() {
+            const tbody = document.getElementById('mapping-table-body');
+            tbody.replaceChildren();
+
+            TARGET_FIELDS_SCHEMA.forEach(target => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+
+                const targetCell = document.createElement('td');
+                targetCell.className = 'py-2 px-4 border-r border-slate-100';
+                const label = document.createElement('div');
+                label.className = 'font-bold text-slate-800 text-xs';
+                label.textContent = target.label;
+                const meta = document.createElement('div');
+                meta.className = 'text-[9px] font-mono text-slate-400';
+                meta.textContent = `${target.collection} | Key: ${target.key}`;
+                targetCell.append(label, meta);
+
+                const sourceCell = document.createElement('td');
+                sourceCell.className = 'py-2 px-4';
+                const select = document.createElement('select');
+                select.dataset.targetKey = target.key;
+                select.className = 'map-dropdown-select w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono font-bold text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white transition';
+
+                const blank = document.createElement('option');
+                blank.value = '';
+                blank.textContent = '-- UNMAPPED (IGNORE) --';
+                select.appendChild(blank);
+                parsedSourceHeaders.forEach(header => {
+                    const option = document.createElement('option');
+                    option.value = header;
+                    option.textContent = header;
+                    select.appendChild(option);
+                });
+                select.addEventListener('change', updateMappingStatus);
+                sourceCell.appendChild(select);
+                tr.append(targetCell, sourceCell);
+                tbody.appendChild(tr);
+            });
+            updateMappingStatus();
+        }
+
+        function autoMatchDropdowns() {
+            const dropdowns = document.querySelectorAll('.map-dropdown-select');
+
+            dropdowns.forEach(select => {
+                const targetKey = select.getAttribute('data-target-key').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const targetObj = TARGET_FIELDS_SCHEMA.find(t => t.key === select.getAttribute('data-target-key'));
+                const targetLabel = targetObj ? targetObj.label.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+
+                parsedSourceHeaders.forEach(sourceHeader => {
+                    const cleanSource = sourceHeader.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                    if (cleanSource === targetKey || cleanSource === targetLabel || cleanSource.includes(targetKey)) {
+                        select.value = sourceHeader;
+                    }
+                });
+            });
+
+            updateMappingStatus();
+        }
+
+        function updateMappingStatus() {
+            const dropdowns = Array.from(document.querySelectorAll('.map-dropdown-select'));
+            const mappedCount = dropdowns.filter(s => s.value !== '').length;
+
+            document.getElementById('mapped-count-badge').innerText = `${mappedCount} / ${TARGET_FIELDS_SCHEMA.length} Mapped`;
+
+            const uicDropdown = dropdowns.find(s => s.getAttribute('data-target-key') === 'uic');
+            const hasUic = uicDropdown && uicDropdown.value !== '';
+
+            const btn = document.getElementById('btn-execute-migration');
+
+            if (hasUic && parsedFileRows.length > 0) {
+                btn.disabled = false;
+                btn.className = "bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded-md text-xs font-black uppercase transition cursor-pointer flex items-center gap-1 shadow-md shadow-teal-100";
+            } else {
+                btn.disabled = true;
+                btn.className = "bg-slate-300 text-slate-500 px-3 py-1 rounded-md text-xs font-black uppercase transition cursor-not-allowed flex items-center gap-1";
+            }
+        }
+
+        function resetMapperWorkspace() {
+            document.getElementById('input-file-uploader').value = '';
+            document.getElementById('file-info-badge').innerText = 'No file loaded';
+            document.getElementById('mapper-workspace-zone').classList.add('hidden');
+            document.getElementById('btn-auto-match').disabled = true;
+            document.getElementById('btn-auto-match').className = "bg-indigo-50 text-indigo-300 border border-indigo-100 px-3 py-1 rounded-md text-xs font-bold uppercase transition flex items-center gap-1 cursor-not-allowed";
+            parsedFileRows = [];
+            parsedSourceHeaders = [];
+            
+            const body = document.getElementById('upload-section-body');
+            if (body && body.classList.contains('hidden')) {
+                toggleUploadAccordion();
+            }
+        }
+
+        function generateDataPreview() {
+            const dropdowns = Array.from(document.querySelectorAll('.map-dropdown-select')).filter(s => s.value !== '');
+            if (dropdowns.length === 0) {
+                alert('Please select at least one source file column from the dropdowns to preview data.');
+                return;
+            }
+
+            const theadRow = document.getElementById('preview-table-header');
+            const tbody = document.getElementById('preview-table-body');
+            theadRow.replaceChildren();
+            tbody.replaceChildren();
+
+            dropdowns.forEach(select => {
+                const th = document.createElement('th');
+                th.className = 'py-2 px-3 border-r border-slate-200';
+                th.textContent = `${select.dataset.targetKey} ← ${select.value}`;
+                theadRow.appendChild(th);
+            });
+
+            parsedFileRows.slice(0, 5).forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                dropdowns.forEach(select => {
+                    const td = document.createElement('td');
+                    td.className = 'py-2 px-3 border-r border-slate-100 font-mono text-slate-700';
+                    const value = row[select.value];
+                    td.textContent = value === undefined || value === null || value === '' ? '---' : String(value);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('preview-modal').classList.remove('hidden');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closePreviewModal() {
+            document.getElementById('preview-modal').classList.add('hidden');
+        }
+
+        // UPDATE LIVE PROGRESS UI CONTROLLER
+        function updateMigrationProgressUI(currentMigratedCount, totalRecordsCount) {
+            const percentage = totalRecordsCount > 0 ? Math.min(100, Math.round((currentMigratedCount / totalRecordsCount) * 100)) : 0;
+            
+            document.getElementById('progress-percentage-text').innerText = `${percentage}%`;
+            document.getElementById('progress-bar-fill').style.width = `${percentage}%`;
+            document.getElementById('progress-records-counter').innerText = `${currentMigratedCount.toLocaleString()} / ${totalRecordsCount.toLocaleString()} Records`;
+        }
+
+        // BATCH MIGRATION PIPELINE WITH REAL-TIME PROGRESS OVERLAY
+        async function executeBatchMigration() {
+            const dropdowns = Array.from(document.querySelectorAll('.map-dropdown-select'));
+            const uicDropdown = dropdowns.find(s => s.dataset.targetKey === 'uic');
+
+            if (!uicDropdown || !uicDropdown.value) {
+                alert("MIGRATION ERROR: Select a source column for the mandatory 'UIC' field.");
+                return;
+            }
+            if (!parsedFileRows.length) {
+                alert('No source rows are loaded. Please select a file first.');
+                return;
+            }
+
+            const activeMappings = dropdowns.filter(s => s.value !== '').map(s => ({
+                targetKey: s.dataset.targetKey,
+                sourceHeader: s.value
+            }));
+
+            const allFormattedRecords = parsedFileRows.map(row => {
+                const demographics = {};
+                const registry = {};
+                const oiLogsTemp = {};
+                const stiLogsTemp = {};
+                let uicVal = '';
+
+                activeMappings.forEach(map => {
+                    const targetKey = map.targetKey;
+                    const val = row[map.sourceHeader];
+                    if (val === undefined || val === null || val === '') return;
+
+                    if (targetKey === 'uic') {
+                        uicVal = String(val).trim().toUpperCase();
+                    } else if (targetKey.startsWith('oi_')) {
+                        const parts = targetKey.split('_');
+                        const index = parts[1];
+                        const fieldType = parts.slice(2).join('_');
+                        if (!oiLogsTemp[index]) oiLogsTemp[index] = {};
+                        oiLogsTemp[index][fieldType] = val;
+                    } else if (targetKey.startsWith('sti_')) {
+                        const parts = targetKey.split('_');
+                        const index = parts[1];
+                        const fieldType = parts.slice(2).join('_');
+                        if (!stiLogsTemp[index]) stiLogsTemp[index] = {};
+                        stiLogsTemp[index][fieldType] = val;
+                    } else if ([
+                        'lastName', 'firstName', 'middleName', 'suffix', 'sex', 'kp', 'bday',
+                        'contactNumber', 'emailAddress', 'address', 'philhealthNumber', 'ohasisUrl',
+                        'generated_serial_code', 'inception', 'incDate', 'incFrom', 'outcome',
+                        'outDate', 'outTo', 't0Date', 't0Result', 'iptChecked', 'iptStart',
+                        'iptEnd', 'cptChecked', 'cptStart', 'cptEnd', 'tbStatus', 'tbStart',
+                        'tbEnd', 'confirmatoryStatus', 'confirmatoryResult', 'confirmatoryDate',
+                        'confirmatoryCode', 'dispenseDate', 'pillsDispensed', 'prepDate', 'prepStatus',
+                        'prepDosage', 'prepRegimen', 'serumCreatinine', 'creatinineClearance',
+                        'weight', 'gahtToggle', 'gahtSpecify'
+                    ].includes(targetKey)) {
+                        demographics[targetKey] = val;
+                    } else if ([
+                        'artEnrollmentDate', 'vlStatus', 'vlValue', 'latestCd4Count',
+                        'retentionStatus', 'nextRefillDate', 'pillsRemaining', 'artRegimen', 'artBy'
+                    ].includes(targetKey)) {
+                        registry[targetKey] = val;
+                    }
+                });
+
+                const oiLogsArray = Object.keys(oiLogsTemp).sort((a, b) => Number(a) - Number(b)).map(i => {
+                    const entry = oiLogsTemp[i];
+                    return (entry.type || entry.date) ? { type: entry.type || 'Unspecified', date: entry.date || '---' } : null;
+                }).filter(Boolean);
+                if (oiLogsArray.length) demographics.oiLogs = oiLogsArray;
+
+                const stiLogsArray = Object.keys(stiLogsTemp).sort((a, b) => Number(a) - Number(b)).map(i => {
+                    const entry = stiLogsTemp[i];
+                    return (entry.name || entry.date) ? { name: entry.name || 'Unspecified', date: entry.date || '---' } : null;
+                }).filter(Boolean);
+                if (stiLogsArray.length) demographics.stiLogs = stiLogsArray;
+
+                // The current staff.py schema stores these in ART demographics.
+                if (registry.artRegimen !== undefined) {
+                    if (demographics.artRegimen === undefined) demographics.artRegimen = registry.artRegimen;
+                    delete registry.artRegimen;
+                }
+                if (registry.artBy !== undefined) {
+                    if (demographics.artBy === undefined) demographics.artBy = registry.artBy;
+                    delete registry.artBy;
+                }
+                return { uic: uicVal, demographics, registry };
+            }).filter(item => item.uic && /^[A-Z0-9._:-]{1,128}$/.test(item.uic) && (Object.keys(item.demographics).length || Object.keys(item.registry).length));
+
+            if (!allFormattedRecords.length) {
+                alert('No importable records were prepared. Check the UIC mapping, UIC values, and target field mappings.');
+                return;
+            }
+
+            const invalidOrEmptyCount = parsedFileRows.length - allFormattedRecords.length;
+            const confirmation = `You are about to transmit ${allFormattedRecords.length.toLocaleString()} mapped records.\n\nRows skipped because of invalid/missing UIC or no mapped data: ${invalidOrEmptyCount.toLocaleString()}.\n\nThe server will use the facility bound to your authenticated staff session. Mapped fields may merge into existing records with the same UIC. Continue only after reviewing your mapping.`;
+            if (!confirm(confirmation)) return;
+
+            const progressOverlay = document.getElementById('migration-progress-overlay');
+            const btn = document.getElementById('btn-execute-migration');
+            btn.disabled = true;
+            btn.textContent = 'Executing Batch Migration...';
+            updateMigrationProgressUI(0, allFormattedRecords.length);
+            progressOverlay.classList.remove('hidden');
+
+            // The backend accepts at most 100 records per request. Small chunks
+            // also reduce the chance of hitting Flask's configured body-size cap.
+            const CHUNK_SIZE = 5;
+            let totalSuccessfullyMigrated = 0;
+            let completedRows = 0;
+
+            try {
+                for (let i = 0; i < allFormattedRecords.length; i += CHUNK_SIZE) {
+                    const chunk = allFormattedRecords.slice(i, i + CHUNK_SIZE);
+
+                    // Get a CSRF token from this same authenticated Flask session.
+                    const tokenResponse = await fetch('/api/art/csrf-token', {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const tokenData = await tokenResponse.json().catch(() => ({}));
+                    if (!tokenResponse.ok || !tokenData.success || !tokenData.csrf_token) {
+                        throw new Error(tokenData.error || `Could not retrieve CSRF token (HTTP ${tokenResponse.status}). Please sign in again.`);
+                    }
+
+                    const response = await fetch('/api/batch-import-clients', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-Token': tokenData.csrf_token
+                        },
+                        body: JSON.stringify({ records: chunk })
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok || result.success !== true) {
+                        const reason = result.error || `Chunk import failed with HTTP ${response.status}.`;
+                        throw new Error(`Batch ${Math.floor(i / CHUNK_SIZE) + 1} failed: ${reason}\n${completedRows} rows were submitted in successful batches before the failure. Check the destination before retrying.`);
+                    }
+
+                    totalSuccessfullyMigrated += Number(result.count || chunk.length);
+                    completedRows += chunk.length;
+                    updateMigrationProgressUI(completedRows, allFormattedRecords.length);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 350));
+                progressOverlay.classList.add('hidden');
+                alert(`MIGRATION COMPLETE!\nSuccessfully submitted ${totalSuccessfullyMigrated.toLocaleString()} records.\nRows skipped before transmission: ${invalidOrEmptyCount.toLocaleString()}.\n\nPlease verify the records in the destination registry.`);
+                resetMapperWorkspace();
+            } catch (err) {
+                console.error('Migration Transmit Error:', err);
+                progressOverlay.classList.add('hidden');
+                alert(`MIGRATION STOPPED:\n${err.message || 'Operation failed during transmission.'}`);
+            } finally {
+                progressOverlay.classList.add('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Execute Migration';
+                updateMappingStatus();
+            }
+        }
+
+    </script>
+</body>
+</html>

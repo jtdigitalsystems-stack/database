@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Information - Staff Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    {% include 'firebase_config.html' ignore missing %}
+    
+    <script type="module" src="{{ url_for('static', filename='js/auth_guard.js') }}"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    {% include 'navbar.html' ignore missing %}
+
+    <main class="flex-1 flex items-center justify-center p-6 max-w-lg mx-auto w-full">
+        
+        <div class="w-full bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-6">
+            
+            <div class="flex items-center gap-4 border-b border-slate-100 pb-4">
+                <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-base font-extrabold text-slate-900 uppercase tracking-tight">Profile Information</h2>
+                    <p id="facility-node-label" class="text-xs text-slate-500 font-medium">Fetching Node Context...</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                
+                <div>
+                    <label class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-1">Staff Name</label>
+                    <input type="text" id="profile-name" placeholder="Loading profile name..." class="w-full bg-slate-50/50 border border-slate-300 rounded-lg py-2 px-3 text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition shadow-sm">
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-2">
+                        <label class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-1">Birthdate</label>
+                        <input type="date" id="profile-bday" oninput="calculateProfileAge(this.value)" class="w-full bg-slate-50/50 border border-slate-300 rounded-lg py-2 px-3 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition shadow-sm">
+                    </div>
+                    <div>
+                        <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Age</label>
+                        <input type="text" id="profile-age" disabled value="--" class="w-full bg-slate-100 border border-slate-200 rounded-lg py-2 text-center text-xs font-mono font-black text-slate-500 cursor-not-allowed">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Email</label>
+                    <input type="email" id="profile-email" disabled value="Fetching identity..." class="w-full bg-slate-100 border border-slate-200 rounded-lg py-2 px-3 text-xs font-mono font-medium text-slate-500 cursor-not-allowed">
+                </div>
+
+                <div>
+                    <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Assigned Facility Role (Position)</label>
+                    <input type="text" id="profile-position" disabled placeholder="Fetching role..." class="w-full bg-slate-100 border border-slate-200 rounded-lg py-2 px-3 text-xs font-bold text-slate-700 cursor-not-allowed">
+                </div>
+
+                <div>
+                    <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Database Access Control Level</label>
+                    <div class="relative">
+                        <input type="text" id="profile-clearance" disabled placeholder="Fetching clearance..." class="w-full bg-slate-100 border border-slate-200 rounded-lg py-2 px-3 text-xs font-black uppercase text-indigo-700 cursor-not-allowed">
+                        <span class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-indigo-600"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="pt-2">
+                <button type="button" onclick="saveProfileChanges()" id="btn-update-profile" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md shadow-indigo-100 transition hover:bg-indigo-700 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Update Profile
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- DYNAMIC MULTI-TENANT PROFILE SCRIPT -->
+    <script type="module">
+        import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        let auth, db;
+
+        async function initProfileModule() {
+            try {
+                const response = await fetch('/api/firebase-config');
+                const configData = await response.json();
+
+                if (configData.facility_name) {
+                    const label = document.getElementById('facility-node-label');
+                    if (label) label.innerText = `Staff Node: ${configData.facility_name}`;
+                }
+
+                // REUSE EXISTING FIREBASE APP OR INITIALIZE
+                let app;
+                if (getApps().length === 0) {
+                    app = initializeApp(configData.firebase);
+                } else {
+                    app = getApp();
+                }
+
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                bindAuthState();
+            } catch (e) {
+                console.error("Profile initialization error:", e);
+            }
+        }
+
+        function bindAuthState() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    const rawEmail = user.email;
+                    const lowerEmail = user.email.toLowerCase();
+                    document.getElementById('profile-email').value = lowerEmail;
+                    
+                    try {
+                        let data = null;
+
+                        // Strategy 1: Look up document by lowercased email key
+                        let docSnap = await getDoc(doc(db, "authorized_clinical_staff", lowerEmail));
+                        if (docSnap.exists()) {
+                            data = docSnap.data();
+                        } else {
+                            // Strategy 2: Look up document by raw email key
+                            docSnap = await getDoc(doc(db, "authorized_clinical_staff", rawEmail));
+                            if (docSnap.exists()) {
+                                data = docSnap.data();
+                            } else {
+                                // Strategy 3: Query collection where 'email' field matches
+                                const qEmail = query(collection(db, "authorized_clinical_staff"), where("email", "==", lowerEmail));
+                                const snapEmail = await getDocs(qEmail);
+                                
+                                if (!snapEmail.empty) {
+                                    data = snapEmail.docs[0].data();
+                                } else {
+                                    // Strategy 4: Query collection where 'uid' field matches
+                                    const qUid = query(collection(db, "authorized_clinical_staff"), where("uid", "==", user.uid));
+                                    const snapUid = await getDocs(qUid);
+                                    if (!snapUid.empty) {
+                                        data = snapUid.docs[0].data();
+                                    }
+                                }
+                            }
+                        }
+
+                        if (data) {
+                            const resolvedName = data.lastNameFirstName || data.name || user.displayName || lowerEmail;
+                            const resolvedPosition = data.positionRole || 'Clinical Staff';
+                            const resolvedClearance = data.clearancePermission || 'Viewer';
+
+                            document.getElementById('profile-name').value = resolvedName;
+                            document.getElementById('profile-position').value = resolvedPosition;
+                            document.getElementById('profile-clearance').value = resolvedClearance;
+                            
+                            localStorage.setItem('user_name', resolvedName);
+                            localStorage.setItem('user_clearance', resolvedClearance);
+                            localStorage.setItem('user_position', resolvedPosition);
+
+                            if (data.bday) {
+                                document.getElementById('profile-bday').value = data.bday;
+                                calculateProfileAge(data.bday);
+                            }
+                        } else {
+                            const fallbackName = user.displayName || lowerEmail;
+                            document.getElementById('profile-name').value = fallbackName;
+                            document.getElementById('profile-position').value = 'Clinical Staff';
+                            document.getElementById('profile-clearance').value = 'Viewer';
+
+                            localStorage.setItem('user_name', fallbackName);
+                            localStorage.setItem('user_clearance', 'Viewer');
+                            localStorage.setItem('user_position', 'Staff');
+                        }
+                    } catch (err) {
+                        console.error("Profile fetch error:", err);
+                        document.getElementById('profile-name').value = user.displayName || lowerEmail;
+                    }
+                }
+            });
+        }
+
+        function calculateProfileAge(birthdate) {
+            if (!birthdate) return;
+            const birth = new Date(birthdate);
+            if (isNaN(birth.getTime())) return;
+            
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            
+            document.getElementById('profile-age').value = age >= 0 ? age : 0;
+        }
+
+        async function saveProfileChanges() {
+            if (!auth || !auth.currentUser) return;
+            const user = auth.currentUser;
+            const userEmail = user.email.toLowerCase();
+
+            const namePayload = document.getElementById('profile-name').value.trim();
+            const bdayPayload = document.getElementById('profile-bday').value;
+            const btn = document.getElementById('btn-update-profile');
+
+            btn.disabled = true;
+            btn.innerText = "Saving Changes...";
+
+            try {
+                await setDoc(doc(db, "authorized_clinical_staff", userEmail), {
+                    lastNameFirstName: namePayload,
+                    bday: bdayPayload,
+                    email: userEmail,
+                    uid: user.uid
+                }, { merge: true });
+
+                localStorage.setItem('user_name', namePayload);
+                alert("SUCCESS: Profile information updated successfully.");
+            } catch (err) {
+                console.error("Profile update error:", err);
+                alert("CRITICAL ERROR: Failed to update profile.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Update Profile`;
+            }
+        }
+
+        window.calculateProfileAge = calculateProfileAge;
+        window.saveProfileChanges = saveProfileChanges;
+
+        initProfileModule();
+    </script>
+</body>
+</html>

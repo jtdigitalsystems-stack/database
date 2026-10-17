@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Management Portal - Hub</title>
+    
+  
+    
+    <script type="module" src="{{ url_for('static', filename='js/auth_guard.js') }}"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <header class="border-b border-slate-200 bg-white px-8 py-4 flex justify-between items-center shadow-sm">
+        <div class="flex items-center gap-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
+            <span id="nav-facility-name" class="text-xs uppercase tracking-widest font-bold text-slate-400">Loading Facility...</span>
+        </div>
+        <button onclick="window.location.href='{{ url_for("logout") }}'" class="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/60 px-3 py-1.5 rounded-md border border-rose-100 transition uppercase tracking-wide">
+            Logout
+        </button>
+    </header>
+
+    <main class="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full px-6 py-12">
+        
+        <!-- DYNAMIC WELCOME & FACILITY HEADER -->
+        <div class="text-center space-y-2 mb-12">
+            <div id="welcome-user-tag" class="inline-flex items-center gap-1.5 bg-teal-50 border border-teal-100 px-3 py-1 rounded-full text-xs font-bold text-teal-700 uppercase tracking-wider mb-1">
+                👋 <span id="user-display-name">Welcome back, Clinical Staff</span>
+            </div>
+            <h1 id="hero-facility-name" class="text-2xl font-black text-slate-900 tracking-tight uppercase">Loading Client Database...</h1>
+            <p class="text-xs text-slate-500 max-w-md mx-auto font-medium">Cloud-based database for PLHIV client records.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+            
+            <button onclick="window.location.href='{{ url_for("selectdb_page") }}'" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-teal-500 text-left transition-all duration-300 flex flex-col justify-between h-52">
+                <div class="space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 border border-teal-100 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 18c0 1.1-4 2-9 2s-9-.9-9-2V6c0-1.1 4-2 9-2s9 .9 9 2Z"/><path d="M20 12c0 1.1-4 2-9 2s-9-.9-9-2"/><path d="M3 6v6"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-teal-600 transition-colors uppercase tracking-wide">Database</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Access ART and PrEP database– view, add, and delete records.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-teal-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Go to database &rarr;
+                </div>
+            </button>
+
+            <button type="button" disabled aria-disabled="true" class="group bg-slate-100 p-6 rounded-2xl border border-slate-200 text-left flex flex-col justify-between h-52 opacity-60 cursor-not-allowed">
+                <div class="space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-slate-200 text-slate-400 border border-slate-300 flex items-center justify-center transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0Z"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-500 uppercase tracking-wide">My Clinic</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Manage facility profile, information, and staff.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1 mt-4">
+                    Go to my Clinic &rarr;
+                </div>
+            </button>
+
+            <button onclick="window.location.href='{{ url_for("reports_page") }}'" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-rose-500 text-left transition-all duration-300 flex flex-col justify-between h-52">
+                <div class="space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-rose-600 transition-colors uppercase tracking-wide">Reports</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Monitor, analyze, and evaluate client and facility analytics.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-rose-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Go to reports &rarr;
+                </div>
+            </button>
+
+            <button type="button" disabled aria-disabled="true" class="group bg-slate-100 p-6 rounded-2xl border border-slate-200 text-left flex flex-col justify-between h-52 opacity-60 cursor-not-allowed">
+                <div class="space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-slate-200 text-slate-400 border border-slate-300 flex items-center justify-center transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-500 uppercase tracking-wide">Profile</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">View and edit your information.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1 mt-4">
+                    Go to profile &rarr;
+                </div>
+            </button>
+
+            <button onclick="window.location.href='{{ url_for("art_export_page") }}'" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-500 text-left transition-all duration-300 flex flex-col justify-between h-52">
+                <div class="space-y-4 w-full">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-wide">Export Records</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Export client registry logs.</p>
+                    </div>
+                </div>
+                <div id="export-status-text" class="text-[10px] uppercase font-bold text-emerald-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Go to exports &rarr;
+                </div>
+            </button>
+
+            <!-- IMPORT RECORDS CARD BUTTON -->
+            <button onclick="window.location.href='{{ url_for("batch_import_page") }}'" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-500 text-left transition-all duration-300 flex flex-col justify-between h-52">
+                <div class="space-y-4 w-full">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 16V4"/>
+                            <path d="m7 9 5-5 5 5"/>
+                            <path d="M4 20h16"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-wide">Import Records</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Upload client records in bulk to the facility database.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Go to imports &rarr;
+                </div>
+            </button>
+
+            <!-- RESOURCES CARD BUTTON -->
+            <button type="button" disabled aria-disabled="true" class="group bg-slate-100 p-6 rounded-2xl border border-slate-200 text-left flex flex-col justify-between h-52 opacity-60 cursor-not-allowed">
+                <div class="space-y-4 w-full">
+                    <div class="w-12 h-12 rounded-xl bg-slate-200 text-slate-400 border border-slate-300 flex items-center justify-center transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+                            <path d="M6 6h10"/>
+                            <path d="M6 10h10"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-500 uppercase tracking-wide">Resources</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Access clinical guidelines, guidelines, forms, and references.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1 mt-4">
+                    Go to resources &rarr;
+                </div>
+            </button>
+
+        </div>
+    </main>
+
+    <footer class="text-center py-6 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-200 bg-white">
+        Developed by the MNE Team of LAKAN Network 2026. For the use of LAKAN Network only.
+    </footer>
+
+    <!-- AUTHENTICATED USER + FACILITY CONTEXT -->
+    <script>
+        async function loadHubContextData() {
+            const userTag = document.getElementById('user-display-name');
+            const navLabel = document.getElementById('nav-facility-name');
+            const heroLabel = document.getElementById('hero-facility-name');
+
+            try {
+                // Both endpoints are protected by the Flask staff session.
+                const [staffResponse, facilityResponse] = await Promise.all([
+                    fetch('/api/staff/me', {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store'
+                    }),
+                    fetch('/api/firebase-config', {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store'
+                    })
+                ]);
+
+                if (staffResponse.status === 401 || facilityResponse.status === 401) {
+                    window.location.href = '{{ url_for("login_page") }}';
+                    return;
+                }
+
+                if (!staffResponse.ok || !facilityResponse.ok) {
+                    throw new Error('Unable to resolve authenticated staff context.');
+                }
+
+                const staffData = await staffResponse.json();
+                const facilityData = await facilityResponse.json();
+
+                if (!staffData.success || !facilityData.success) {
+                    throw new Error('Invalid authenticated context.');
+                }
+
+                const staffName = String(
+                    staffData.staff?.name || 'Clinical Staff'
+                ).trim();
+
+                const facilityName = String(
+                    facilityData.facility_name || 'Facility'
+                ).trim();
+
+                if (userTag) {
+                    userTag.innerText = `Welcome back, ${staffName}`;
+                }
+
+                if (navLabel) {
+                    navLabel.innerText = `${facilityName} Client Database`;
+                }
+
+                if (heroLabel) {
+                    heroLabel.innerText = `${facilityName} Client Database`;
+                }
+
+            } catch (error) {
+                console.error('Failed to load authenticated hub context:', error);
+
+                if (userTag) {
+                    userTag.innerText = 'Welcome back, Clinical Staff';
+                }
+
+                if (navLabel) {
+                    navLabel.innerText = 'Client Database';
+                }
+
+                if (heroLabel) {
+                    heroLabel.innerText = 'Client Database';
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadHubContextData);
+    </script>
+
+</body>
+</html>

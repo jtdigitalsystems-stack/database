@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Management Portal - Resources</title>
+    
+    {% include 'firebase_config.html' %}
+    
+    <script type="module" src="{{ url_for('static', filename='js/auth_guard.js') }}"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    {% include 'navbar.html' %}
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full px-6 py-12">
+        
+        <div class="text-center space-y-2 mb-12">
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight uppercase">System Resources & Help</h1>
+            <p class="text-xs text-slate-500 max-w-md mx-auto font-medium">Guides, documentation, and technical support channel for network users.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+            
+            <!-- HOW TO CARD -->
+            <button onclick="window.location.href='/howto'" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-amber-500 text-left transition-all duration-300 flex flex-col justify-between h-52">
+                <div class="space-y-4 w-full">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-amber-600 transition-colors uppercase tracking-wide">How To</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Step-by-step user manuals and visual guides for system workflows.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-amber-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    View guides &rarr;
+                </div>
+            </button>
+
+            <!-- FAQS CARD -->
+            <button onclick="alert('Opening FAQs...')" class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-500 text-left transition-all duration-300 flex flex-col justify-between h-52">
+                <div class="space-y-4 w-full">
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-wide">FAQs</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Answers to frequently asked technical and operational queries.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-blue-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Read FAQs &rarr;
+                </div>
+            </button>
+
+            <!-- CONTACT SUPPORT CARD -->
+            <button onclick="window.location.href='/support'"  class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-teal-500 text-left transition-all duration-300 flex flex-col justify-between h-52">
+                <div class="space-y-4 w-full">
+                    <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 border border-teal-100 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-teal-600 transition-colors uppercase tracking-wide">Contact Support</h2>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Reach out to the MNE Team for assistance or bug reports.</p>
+                    </div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-teal-600 flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Contact team &rarr;
+                </div>
+            </button>
+
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="text-center py-6 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-200 bg-white">
+        Developed by the MNE Team of LAKAN Network 2026. For the use of LAKAN Network only.[cite: 8]
+    </footer>
+
+</body>
+</html>

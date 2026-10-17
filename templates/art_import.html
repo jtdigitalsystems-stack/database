@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Data Central · ART Import</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>body{font-family:Inter,system-ui,sans-serif} .mono{font-family:ui-monospace,SFMono-Regular,monospace}</style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+<header class="bg-white border-b border-slate-200">
+ <div class="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
+  <div><div class="text-xs uppercase tracking-widest font-black text-teal-700">Data Central</div><h1 class="text-xl font-bold">ART Data Import</h1><p class="text-sm text-slate-500">Map facility files into the standard ART database structure.</p></div>
+  <span class="text-xs font-bold rounded-full bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1">Review before import</span>
+ </div>
+</header>
+<main class="max-w-[1600px] mx-auto p-4 md:p-5 space-y-4">
+ <section class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+  <h2 class="font-bold mb-1">1. Select facility file</h2><p class="text-sm text-slate-500 mb-4">Excel (.xlsx/.xls) and CSV are supported. Processing happens in this browser; the file is not uploaded until you confirm import.</p>
+  <div class="flex flex-col md:flex-row gap-3"><input id="file" type="file" accept=".xlsx,.xls,.csv" class="block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-teal-50 file:px-4 file:py-2 file:font-bold file:text-teal-700">
+  <select id="sheet" class="border border-slate-300 rounded-lg px-3 py-2 text-sm min-w-48" disabled><option>Select worksheet</option></select></div>
+  <div id="fileStatus" class="text-sm text-slate-500 mt-3">No file selected.</div>
+ </section>
+ <div id="workspace" class="hidden grid grid-cols-1 xl:grid-cols-[minmax(360px,0.78fr)_minmax(0,1.22fr)] gap-4 items-start">
+ <section id="mappingSection" class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm xl:sticky xl:top-3 xl:max-h-[calc(100vh-24px)] xl:overflow-y-auto">
+  <div class="flex flex-col gap-3"><div><div class="text-[10px] uppercase tracking-widest font-black text-teal-700 mb-1">ART entry fields</div><h2 class="font-bold text-base">2. Map uploaded columns</h2><p class="text-xs text-slate-500 mt-1">Each field mirrors a section of the ART entry form. Select the matching header from your file.</p></div><button id="autoMap" class="self-start border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-50">Suggest mappings again</button></div>
+  <div id="mappingList" class="grid grid-cols-1 gap-3 mt-4"></div>
+  <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900"><b>Review carefully:</b> check repeated CD4/VL date-result pairs and any automatically suggested fields before importing.</div>
+ </section>
+ <section id="previewSection" class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm min-w-0">
+  <div class="flex flex-col gap-2"><div><div class="text-[10px] uppercase tracking-widest font-black text-teal-700 mb-1">Live spreadsheet preview</div><h2 class="font-bold text-base">3. Validate before import</h2><p class="text-xs text-slate-500 mt-1">The preview refreshes when you change a mapping. Rows without a UIC are skipped; blank cells do not erase existing values.</p></div><button id="previewBtn" class="self-start bg-slate-800 text-white rounded-lg px-3 py-2 text-xs font-bold">Refresh preview</button></div>
+  <div id="summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4"></div>
+  <div class="mt-4"><div class="flex items-center justify-between gap-2 mb-2"><h3 class="text-xs font-black uppercase tracking-wider text-slate-600">Uploaded spreadsheet preview</h3><span id="sourcePreviewNote" class="text-[10px] text-slate-400">First 10 rows</span></div><div class="overflow-auto border border-slate-200 rounded-lg max-h-[32vh]"><table id="sourcePreviewTable" class="min-w-full text-xs"></table></div></div>
+  <div class="mt-4"><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 mb-2">Mapped ART records</h3><div class="overflow-auto border border-slate-200 rounded-lg max-h-[38vh]"><table class="min-w-full text-xs"><thead class="bg-slate-50 text-slate-600 uppercase"><tr><th class="p-3 text-left">Source row</th><th class="p-3 text-left">UIC</th><th class="p-3 text-left">Client</th><th class="p-3 text-left">ART enrollment</th><th class="p-3 text-left">VL history</th><th class="p-3 text-left">CD4 history</th><th class="p-3 text-left">Validation</th></tr></thead><tbody id="previewBody" class="divide-y divide-slate-100"></tbody></table></div></div>
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mt-4"><p id="importNote" class="text-xs text-slate-500 max-w-3xl">No import has been sent.</p><button id="importBtn" disabled class="bg-teal-600 disabled:bg-slate-300 text-white rounded-lg px-5 py-2.5 text-sm font-black">Import valid records</button></div>
+  <div id="result" class="text-sm mt-3"></div>
+ </section>
+ </div>
+ <section class="text-xs text-slate-500 leading-relaxed">Privacy and safety: use only an authorized staff session. This tool does not grant permissions; the server must enforce tenant/facility scope, field validation, and write authorization. Review the import summary before committing clinical data.</section>
+</main>
+<script>
+const TARGETS = [
+ ['uic','UIC / Central ID','required','identity'],['lastName','Last name','','demographics'],['firstName','First name','','demographics'],['middleName','Middle name','','demographics'],['suffix','Suffix','','demographics'],['bday','Birthdate','','demographics'],['sex','Sex assigned at birth','','demographics'],['kp','Key population','','demographics'],['contactNumber','Contact number','','demographics'],['address','Address','','demographics'],['philhealthNumber','PhilHealth number','','demographics'],['ohasisUrl','OHASIS URL','','demographics'],
+ ['inception','Client inception','','clinical'],['incFrom','Inception source / referred from','','clinical'],['outcome','ART outcome / retention status','','clinical'],['outDate','Outcome date','','clinical'],['outTo','Outcome details / trans-out to','','clinical'],['t0Date','HIV test date','','clinical'],['t0Result','HIV test result','','clinical'],['hasOi','History of opportunistic infection','','clinical'],['artDate','ART enrollment date','','clinical'],['artRegimen','ART regimen','','clinical'],['artBy','ART initiated by','','clinical'],['iptStartDate','IPT start date','','clinical'],['iptEndDate','IPT completion date','','clinical'],['cptStartDate','CPT start date','','clinical'],['cptEndDate','CPT completion date','','clinical'],['tbStatus','TB status','','clinical'],['tbTreatmentStart','TB treatment start','','clinical'],['tbTreatmentCompleted','TB treatment completed','','clinical'],['confirmatoryResult','Confirmatory result','','clinical'],['confirmatoryDate','Confirmatory date','','clinical'],['confirmatoryCode','Confirmatory code','','clinical'],['cd4Date1','CD4 record 1 — date','','clinical'],['cd4Count1','CD4 record 1 — count','','clinical'],['cd4Date2','CD4 record 2 — date','','clinical'],['cd4Count2','CD4 record 2 — count','','clinical'],['cd4Date3','CD4 record 3 — date','','clinical'],['cd4Count3','CD4 record 3 — count','','clinical'],['vlDate1','Viral load record 1 — date','','clinical'],['vlCount1','Viral load record 1 — result','','clinical'],['vlDate2','Viral load record 2 — date','','clinical'],['vlCount2','Viral load record 2 — result','','clinical'],['dispenseDate','Latest dispense date','','refill'],['pillsDispensed','Pills dispensed','','refill'],['dispensedBy','Dispensed by','','refill'],['pillsRemaining','Pills remaining','','refill'],['nextRefillDate','Next refill date','','refill'],['generated_serial_code','Client code','','identity']
+];
+const ALIASES = {
+ uic:['uic','unique identifier code','central id','client uic','patient uic'],
+ lastName:['last name','surname','family name'], firstName:['first name','given name'], middleName:['middle name','middlename'], suffix:['suffix'],
+ bday:['date of birth','birthdate','birthday'], sex:['sex at birth','sex assigned at birth','sex'], kp:['key population','kp classification','kp'],
+ contactNumber:['contact number','mobile number','contact no'], address:['complete address','address'], philhealthNumber:['philhealth number','philhealth pin','philhealth id'],
+ ohasisUrl:['ohasis record link','ohasis url','ohasis link'], inception:['client inception','inception'], incFrom:['referred /trans-in from / trans-out to','referred from','trans-in from','trans-out to'],
+ outcome:['art outcome','retention status','treatment outcome'], outDate:['date of outcome','date of death','trans-out date'], outTo:['outcome details','trans-out to'],
+ t0Date:['hiv t0 test date','hiv test date'], t0Result:['hiv test result','t0 result'], hasOi:["history of oi's","history of oi","opportunistic infection"],
+ artDate:['date enrolled','date enrolled to art','art enrollment date'], artRegimen:['types of arv','art regimen','regimen: drug','arv regimen'], artBy:['art initiated by','initiated by'],
+ iptStartDate:['ipt started','ipt start date'], iptEndDate:['ipt completed','ipt completion date'], cptStartDate:['cpt started','cpt start date'], cptEndDate:['cpt completed','cpt completion date'],
+ tbStatus:['tb status'], tbTreatmentStart:['tb treatment start','tb start date'], tbTreatmentCompleted:['tb treatment completed','tb completed date'],
+ cd4Date1:['cd4 date'], cd4Count1:['cd4 count monitoring'], cd4Date2:['cd4 date.1'], cd4Count2:['cd4 count monitoring.1'], cd4Date3:['cd4 date.2'], cd4Count3:['cd4 count monitoring.2'], vlDate1:['date of viral load'], vlCount1:['monitoring viral load'], vlDate2:['date of viral load.1'], vlCount2:['monitoring viral load.1'],
+ confirmatoryResult:['rhivda/saccl result','confirmatory result'], confirmatoryDate:['date of confirmatory','confirmatory date'], confirmatoryCode:['rhivda/saccl code','confirmatory code'],
+ dispenseDate:['date of last follow-up / refill','date dispensed','last dispense date'], pillsDispensed:['# of pills dispense','pills dispensed'], dispensedBy:['dispensed by'],
+ pillsRemaining:['remaining pill','pills remaining'], nextRefillDate:['est. date of next refill','next refill date'], generated_serial_code:['client code','generated serial code']
+};
+const norm = s => String(s??'').toLowerCase().replace(/[\u00a0]/g,' ').replace(/[._#]/g,' ').replace(/[^a-z0-9/ ]/g,' ').replace(/\s+/g,' ').trim();
+let workbook=null, sourceRows=[], headers=[], mappings={}, previewRecords=[];
+function setStatus(t, cls='text-slate-500'){const el=document.getElementById('fileStatus');el.className='text-sm mt-3 '+cls;el.textContent=t}
+function dateISO(v){
+ if(v===null||v===undefined||v==='') return '';
+ if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+ if(typeof v==='number' && v>20000 && v<80000){const d=XLSX.SSF.parse_date_code(v); if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`}
+ const s=String(v).trim(); if(!s) return '';
+ if(/^\d{4}-\d{1,2}-\d{1,2}/.test(s)){const [y,m,d]=s.slice(0,10).split('-');return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`}
+ const parsed=new Date(s); if(!isNaN(parsed)) return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`;
+ return '';
+}
+function val(row,key){const h=mappings[key];return h && h!=='__IGNORE__' ? row[h] : ''}
+function nonblank(v){return v!==null && v!==undefined && String(v).trim()!==''}
+function targetDate(key){return ['bday','outDate','t0Date','artDate','iptStartDate','iptEndDate','cptStartDate','cptEndDate','tbTreatmentStart','tbTreatmentCompleted','confirmatoryDate','dispenseDate','nextRefillDate'].includes(key)}
+function detectMappings(){
+ mappings={};
+ const exactHints={cd4Date1:'CD4 (DATE)',cd4Count1:'CD4 COUNT MONITORING',cd4Date2:'CD4 (DATE).1',cd4Count2:'CD4 COUNT MONITORING.1',cd4Date3:'CD4 (DATE).2',cd4Count3:'CD4 COUNT MONITORING.2',vlDate1:'DATE OF VIRAL LOAD',vlCount1:'MONITORING VIRAL LOAD',vlDate2:'DATE OF VIRAL LOAD.1',vlCount2:'MONITORING VIRAL LOAD.1'};
+ for(const t of TARGETS){
+  const key=t[0], aliases=(ALIASES[key]||[t[1]]).map(norm);
+  let found=exactHints[key] ? headers.find(h=>h===exactHints[key]) : null;
+  if(!found) found=headers.find(h=>aliases.includes(norm(h)));
+  if(!found) found=headers.find(h=>aliases.some(a=>norm(h).includes(a)||a.includes(norm(h))));
+  mappings[key]=found||'__IGNORE__';
+ }
+ // Avoid using ambiguous/general result fields incorrectly if the source has multiple laboratory result columns.
+}
+function renderMappings(){
+ const box=document.getElementById('mappingList'); box.innerHTML='';
+ const groups={identity:'I. Client identification',demographics:'I. Client information',clinical:'II–IV. Clinical and ART records',refill:'V. Refill and monitoring'};
+ let lastGroup='';
+ for(const t of TARGETS){
+  const [key,label,required,group]=t;
+  if(group!==lastGroup){const heading=document.createElement('div');heading.className='text-[10px] uppercase tracking-widest font-black text-teal-700 border-b border-slate-200 pb-2 pt-2';heading.textContent=groups[group]||group;box.appendChild(heading);lastGroup=group;}
+  const card=document.createElement('label');
+  card.className='block border border-slate-200 rounded-lg p-3';
+  const title=document.createElement('div');title.className='flex justify-between gap-2 mb-2';
+  title.innerHTML=`<span class="text-xs font-bold">${label}</span>${required?'<span class="text-[9px] uppercase text-rose-600 font-black">Required</span>':''}`;
+  const select=document.createElement('select');select.className='w-full border border-slate-300 rounded-md px-2 py-2 text-xs bg-white';select.dataset.key=key;
+  select.add(new Option('— Ignore this field —','__IGNORE__'));
+  headers.forEach(h=>select.add(new Option(h,h)));
+  select.value=mappings[key]||'__IGNORE__';
+  select.addEventListener('change',()=>{mappings[key]=select.value;buildPreview()});
+  card.append(title,select);box.appendChild(card);
+ }
+ document.getElementById('workspace').classList.remove('hidden');
+}
+function findHeader(terms, row){
+ const wanted=terms.map(norm);
+ const h=headers.find(x=>wanted.includes(norm(x)));
+ return h ? row[h] : '';
+}
+// Parse monitoring results into numeric values. VL suppression classification mirrors
+// the detector used in vl (14). Counts remain numeric; qualitative results may have
+// a suppression status but no numeric count.
+function parseNumericCount(value){
+ if(value===null||value===undefined||String(value).trim()==='') return null;
+ if(typeof value==='number') return Number.isFinite(value)?value:null;
+ let text=String(value).toUpperCase().trim().replace(/,/g,'');
+ if(/^(N\/A|NA|NULL|NIL|UD|ND|N\.D\.|TND|BLQ|BELOW|UNDETECTED|UNDETECTABLE|NEGATIVE|NONE DETECTED)$/i.test(text)) return null;
+ // Strip analyte labels and units before extracting the result number.
+ text=text.replace(/\bCD4\b/g,' ').replace(/HIV[- ]?1/g,' ')
+  .replace(/COPIES?\s*\/\s*ML/g,' ').replace(/CELLS?\s*\/\s*MM3/g,' ')
+  .replace(/\/MM3/g,' ').replace(/\bCELLS?\b/g,' ');
+ // Accept values such as "<20", "1,234 copies/mL", "CD4: 456".
+ const matches=[...text.matchAll(/-?\d+(?:\.\d+)?/g)];
+ if(!matches.length) return null;
+ // Use the final numeric token so labels such as "CD4: 456 cells/mm3"
+ // or "HIV-1 RNA <20 copies/mL" do not mistake the label for the result.
+ const n=Number(matches[matches.length-1][0]);
+ return Number.isFinite(n)&&n>=0?n:null;
+}
+function detectVlStatus(value){
+ const rawStr=String(value??'').toUpperCase().trim();
+ if(rawStr===''||rawStr==='N/A'||rawStr==='NULL') return 'INVALID';
+ if(rawStr.includes('GMT')||rawStr.includes('STANDARD TIME')||/^\d{4}[-/]\d{2}[-/]\d{2}/.test(rawStr)) return 'INVALID';
+ if(rawStr.includes('DETECTED')){
+  if(rawStr.includes('<')) return 'SUPPRESSED';
+  const hasNegation=rawStr.includes('NOT')||rawStr.includes('UN')||rawStr.includes('NONE');
+  if(!hasNegation) return 'NOT SUPPRESSED';
+ }
+ const cleanStr=rawStr.replace(/[<>=]/g,'').replace(/\s+/g,'');
+ const numericRes=parseFloat(cleanStr);
+ if(!isNaN(numericRes)) return numericRes<1000?'SUPPRESSED':'NOT SUPPRESSED';
+ const textSuppressionRegexes=[
+  /\bUD\b/,/\bNOT\b/,/\bUNDETECTED\b/,/\bUNDETECTABLE\b/,
+  /\bND\b/,/\bN\/D\b/,/\bN\.D\.\b/,/\bTND\b/,
+  /\bNONE\s+DETECTED\b/,/\bNEGATIVE\b/,/\bNON-REACTIVE\b/,
+  /\bNON\s+REACTIVE\b/,/\bBLQ\b/,/\bBELOW\b/,/\bNIL\b/
+ ];
+ return textSuppressionRegexes.some(rx=>rx.test(rawStr))?'SUPPRESSED':'INVALID';
+}
+function makeRecords(){
+ const grouped=new Map(), errors=[];
+ sourceRows.forEach((row,i)=>{
+  const rawUic=val(row,'uic'), uic=String(rawUic??'').trim().toUpperCase();
+  if(!uic) {errors.push({row:i+2,uic:'',error:'Missing UIC'});return}
+  const get=k=>val(row,k);
+  const d={}, r={};
+  const set=(obj,k,v)=>{if(nonblank(v)) obj[k]=v};
+  for(const key of ['lastName','firstName','middleName','suffix','sex','kp','contactNumber','address','philhealthNumber','ohasisUrl','inception','incFrom','outcome','outDate','outTo','t0Result','artRegimen','artBy','tbStatus','confirmatoryResult','confirmatoryCode','dispensedBy','generated_serial_code']){
+   let v=get(key); if(nonblank(v)) set(d,key,String(v).trim());
+  }
+  for(const key of ['bday','t0Date','artDate','iptStartDate','iptEndDate','cptStartDate','cptEndDate','tbTreatmentStart','tbTreatmentCompleted','confirmatoryDate','dispenseDate']){
+   let v=get(key); if(nonblank(v)){const dt=dateISO(v); if(dt)set(d,key,dt);else errors.push({row:i+2,uic,error:`Invalid date mapped to ${key}`})}
+  }
+  if(nonblank(get('hasOi'))) d.hasOi=/^(yes|y|true|1|present)$/i.test(String(get('hasOi')).trim());
+  for(const key of ['pillsDispensed','dispensedBy']) if(nonblank(get(key))) {let v=get(key); if(key==='pillsDispensed'){const n=Number(v);if(Number.isFinite(n))d[key]=n;else errors.push({row:i+2,uic,error:'Invalid pills dispensed'})}else d[key]=String(v).trim()}
+  const existing=grouped.get(uic)||{uic,demographics:{},registry:{},sourceRows:[]};
+  Object.assign(existing.demographics,d);
+  existing.sourceRows.push(i+2);
+  // Build dated CD4/VL logs from repeated date/value columns, retaining each pair.
+  const cd4Logs=existing.demographics.cd4Logs||[], vlLogs=existing.demographics.vlLogs||[];
+  const cd4Pairs=[['cd4Date1','cd4Count1'],['cd4Date2','cd4Count2'],['cd4Date3','cd4Count3']];
+  cd4Pairs.forEach(([dk,vk])=>{
+   const date=get(dk),rawCount=get(vk);
+   if(nonblank(date)&&nonblank(rawCount)){
+    const dt=dateISO(date),count=parseNumericCount(rawCount);
+    if(!dt) errors.push({row:i+2,uic,error:'Invalid CD4 date'});
+    else if(count===null) errors.push({row:i+2,uic,error:`CD4 count is not numeric (${String(rawCount).trim()})`});
+    else cd4Logs.push({date:dt,count});
+   }
+  });
+  const vlPairs=[['vlDate1','vlCount1'],['vlDate2','vlCount2']];
+  vlPairs.forEach(([dk,vk])=>{
+   const date=get(dk),rawResult=get(vk);
+   if(nonblank(date)&&nonblank(rawResult)){
+    const dt=dateISO(date),count=parseNumericCount(rawResult),status=detectVlStatus(rawResult);
+    if(!dt) errors.push({row:i+2,uic,error:'Invalid viral-load date'});
+    else if(count===null && status==='INVALID') errors.push({row:i+2,uic,error:`VL result could not be parsed (${String(rawResult).trim()})`});
+    else vlLogs.push({date:dt,count,status});
+   }
+  });
+  if(cd4Logs.length) existing.demographics.cd4Logs=dedupeLogs(cd4Logs);
+  if(vlLogs.length) existing.demographics.vlLogs=dedupeLogs(vlLogs);
+  const sortedVL=[...(existing.demographics.vlLogs||[])].sort((a,b)=>b.date.localeCompare(a.date));
+  const sortedCD4=[...(existing.demographics.cd4Logs||[])].sort((a,b)=>b.date.localeCompare(a.date));
+  if(sortedVL.length){
+   if(Number.isFinite(sortedVL[0].count)) r.vlValue=sortedVL[0].count;
+   if(sortedVL[0].status && sortedVL[0].status!=='INVALID') r.vlStatus=sortedVL[0].status;
+  }
+  if(sortedCD4.length)r.latestCd4Count=sortedCD4[0].count;
+  // Normalize the imported ART outcome to the exact values accepted by the ART form.
+  // Store the same normalized value in demographics (Section V/form dropdown) and registry.
+  const rawOutcome=String(get('outcome')||'').trim();
+  if(rawOutcome){
+   const normalizedOutcome=normalizeOutcome(rawOutcome);
+   d.outcome=normalizedOutcome;
+   r.retentionStatus=normalizedOutcome;
+  }
+  const artDate=dateISO(get('artDate'));if(artDate)r.artEnrollmentDate=artDate;
+  const nRemaining=Number(get('pillsRemaining'));if(nonblank(get('pillsRemaining'))&&Number.isFinite(nRemaining))r.pillsRemaining=nRemaining;
+  const next=dateISO(get('nextRefillDate'));if(next)r.nextRefillDate=next;
+  const code=get('generated_serial_code');if(nonblank(code)){d.generated_serial_code=String(code).trim();r.generated_serial_code=String(code).trim()}
+  if(nonblank(get('dispenseDate')) && nonblank(get('pillsDispensed'))){
+    const dt=dateISO(get('dispenseDate')), pills=Number(get('pillsDispensed'));
+    if(dt&&Number.isFinite(pills)) {const logs=existing.demographics.refillLogs||[];logs.push({date:dt,pills,by:String(get('dispensedBy')||'Unspecified staff')});existing.demographics.refillLogs=dedupeLogs(logs)}
+  }
+  existing.registry={...existing.registry,...r};
+  grouped.set(uic,existing);
+ });
+ return {records:[...grouped.values()],errors};
+}
+function dedupeLogs(arr){const m=new Map();arr.forEach(x=>m.set(JSON.stringify(x),x));return [...m.values()]}
+function normalizeOutcome(s){
+ const n=norm(s);
+ if(n.includes('death')||n==='deceased'||n==='died'||n.includes('died'))return 'Deceased';
+ if(n.includes('ltfu')||n.includes('lost to follow')||n.includes('loss to follow'))return 'LTFU';
+ if(n.includes('trans out')||n.includes('transfer out')||n.includes('transferred out'))return 'Trans-out';
+ if(n==='active'||n.includes('alive')||n.includes('alive on art')||n.includes('on art'))return 'Active';
+ return s;
+}
+function summaryCard(label,value){return `<div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">${label}</div><div class="text-xl font-black mt-1">${value}</div></div>`}
+function buildSourcePreview(){
+ const table=document.getElementById('sourcePreviewTable');if(!table)return;table.innerHTML='';
+ const thead=document.createElement('thead');thead.className='sticky top-0 bg-slate-50 text-slate-600';
+ const hr=document.createElement('tr');
+ headers.forEach(h=>{const th=document.createElement('th');th.className='p-2 text-left whitespace-nowrap border-b border-slate-200';th.textContent=h;hr.appendChild(th)});
+ thead.appendChild(hr);table.appendChild(thead);
+ const tbody=document.createElement('tbody');tbody.className='divide-y divide-slate-100';
+ sourceRows.slice(0,10).forEach((row,idx)=>{const tr=document.createElement('tr');headers.forEach(h=>{const td=document.createElement('td');td.className='p-2 whitespace-nowrap max-w-56 truncate';td.title=String(row[h]??'');td.textContent=String(row[h]??'');tr.appendChild(td)});tbody.appendChild(tr)});
+ table.appendChild(tbody);
+ const note=document.getElementById('sourcePreviewNote');if(note)note.textContent=`Showing ${Math.min(10,sourceRows.length)} of ${sourceRows.length} rows · ${headers.length} columns`;
+}
+function buildPreview(){
+ const {records,errors}=makeRecords();previewRecords=records;buildSourcePreview();
+ document.getElementById('summary').innerHTML=[summaryCard('Source rows',sourceRows.length),summaryCard('Unique UICs',records.length),summaryCard('Rows with errors',errors.length),summaryCard('No UIC / skipped',sourceRows.filter(r=>!nonblank(val(r,'uic'))).length)].join('');
+ const body=document.getElementById('previewBody');body.innerHTML='';
+ records.slice(0,250).forEach(rec=>{
+  const name=[rec.demographics.firstName,rec.demographics.middleName,rec.demographics.lastName].filter(Boolean).join(' ');
+  const valid=rec.uic.length>0;
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td class="p-3 mono">${rec.sourceRows.join(', ')}</td><td class="p-3 mono font-bold">${escapeHtml(rec.uic)}</td><td class="p-3">${escapeHtml(name||'—')}</td><td class="p-3 mono">${escapeHtml(rec.registry.artEnrollmentDate||rec.demographics.artDate||'—')}</td><td class="p-3">${(rec.demographics.vlLogs||[]).length}</td><td class="p-3">${(rec.demographics.cd4Logs||[]).length}</td><td class="p-3 text-emerald-700">UIC present</td>`;
+  body.appendChild(tr);
+ });
+ if(records.length>250){const tr=document.createElement('tr');tr.innerHTML=`<td colspan="7" class="p-3 text-center text-slate-500">Preview limited to 250 records; all ${records.length} unique UICs are included in the import payload.</td>`;body.appendChild(tr)}
+ document.getElementById('importBtn').disabled=records.length===0;
+ document.getElementById('importNote').textContent=errors.length?`${errors.length} validation warning(s) were detected. Review mappings and source values. Rows with missing UIC are skipped; invalid dates are not imported.`:'Review the preview carefully. Import sends only records with a UIC.';
+ document.getElementById('result').textContent='';
+ document.getElementById('previewSection').classList.remove('hidden');
+ window._importWarnings=errors;
+}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function readFile(){
+ const f=document.getElementById('file').files[0];if(!f)return;
+ try{
+  workbook=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+  const sel=document.getElementById('sheet');sel.innerHTML='';workbook.SheetNames.forEach(n=>sel.add(new Option(n,n)));sel.disabled=false;
+  loadSheet();setStatus(`${f.name} loaded. Choose the correct worksheet and review the mappings.`,'text-emerald-700');
+ }catch(e){setStatus('Unable to read file. Check that it is a valid Excel or CSV file.','text-rose-600')}
+}
+function loadSheet(){
+ if(!workbook)return;const name=document.getElementById('sheet').value, ws=workbook.Sheets[name];
+ const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,blankrows:false});
+ if(matrix.length<2){setStatus('The selected worksheet needs a header row and at least one data row.','text-rose-600');return}
+ const rawHeaders=matrix[0].map((h,i)=>String(h??'').trim()||`Column ${i+1}`);
+ const seen={};headers=rawHeaders.map(h=>{const n=seen[h]||0;seen[h]=n+1;return n===0?h:`${h}.${n}`});
+ sourceRows=matrix.slice(1).map(values=>{const row={};headers.forEach((h,i)=>row[h]=values[i]??'');return row});
+ detectMappings();renderMappings();buildPreview();
+ setStatus(`${name}: ${rows.length} data rows, ${headers.length} detected columns.`, 'text-emerald-700');
+}
+document.getElementById('file').addEventListener('change',readFile);
+document.getElementById('sheet').addEventListener('change',loadSheet);
+document.getElementById('autoMap').addEventListener('click',()=>{detectMappings();renderMappings()});
+document.getElementById('previewBtn').addEventListener('click',buildPreview);
+document.getElementById('importBtn').addEventListener('click',async()=>{
+ if(!previewRecords.length)return;
+ if(!confirm(`Import ${previewRecords.length} unique ART client records into the currently authenticated facility? Existing records may be updated by the server. Continue only if you have reviewed the mapping and preview.`))return;
+ const btn=document.getElementById('importBtn'),result=document.getElementById('result');btn.disabled=true;btn.textContent='Importing…';result.className='text-sm mt-3 text-slate-600';result.textContent='Sending records securely…';
+ try{
+  const tokenResponse=await fetch('/api/art/csrf-token',{method:'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}});
+  const tokenData=await tokenResponse.json().catch(()=>({}));
+  if(!tokenResponse.ok||!tokenData.success||!tokenData.csrf_token) throw new Error(tokenData.error||'Could not initialize ART security token. Sign in again and retry.');
+  let total=0;const records=previewRecords.map(rec=>({uic:rec.uic,demographics:rec.demographics,registry:rec.registry}));
+  for(let i=0;i<records.length;i+=100){
+   const response=await fetch('/api/batch-import-clients',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-Token':tokenData.csrf_token},body:JSON.stringify({records:records.slice(i,i+100)})});
+   const res=await response.json().catch(()=>({}));
+   if(!response.ok||res.success===false) throw new Error(res.error||`Import batch failed with HTTP ${response.status}`);
+   total+=Number(res.count??res.imported??records.slice(i,i+100).length);
+  }
+  result.className='text-sm mt-3 text-emerald-700 font-bold';result.textContent=`Import request completed. ${total} record(s) reported by the server. Please refresh the ART registry and verify a sample of records.`;
+ }catch(e){result.className='text-sm mt-3 text-rose-700 font-semibold';result.textContent=`Import stopped: ${e.message}. If some batches already completed, verify the registry before retrying to avoid duplicate work.`}
+ finally{btn.disabled=previewRecords.length===0;btn.textContent='Import valid records'}
+});
+</script>
+</body></html>

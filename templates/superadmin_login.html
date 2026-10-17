@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SuperAdmin Login</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+
+<body class="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+
+
+    <div class="w-full max-w-md">
+
+
+        <!-- HEADER -->
+
+        <div class="text-center mb-8">
+
+            <div class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg">
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+
+                    <path d="m9 12 2 2 4-4"></path>
+
+                </svg>
+
+            </div>
+
+
+            <h1 class="text-2xl font-extrabold text-slate-900">
+                SuperAdmin Control Center
+            </h1>
+
+
+            <p class="mt-2 text-sm text-slate-500">
+                Authorized system administration only
+            </p>
+
+        </div>
+
+
+
+        <!-- LOGIN CARD -->
+
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-xl p-7">
+
+
+            <div class="mb-6">
+
+                <h2 class="text-lg font-bold text-slate-900">
+                    Administrator Sign In
+                </h2>
+
+                <p class="text-xs text-slate-500 mt-1">
+                    Sign in using your authorized SuperAdmin account.
+                </p>
+
+            </div>
+
+
+
+            <!-- ERROR -->
+
+            <div
+                id="login-error"
+                class="hidden mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold"
+            ></div>
+
+
+
+            <!-- FORM -->
+
+            <form
+                id="superadmin-login-form"
+                class="space-y-4"
+            >
+
+
+                <div>
+
+                    <label
+                        for="email"
+                        class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5"
+                    >
+                        Email Address
+                    </label>
+
+
+                    <input
+                        id="email"
+                        type="email"
+                        autocomplete="username"
+                        required
+                        class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="superadmin@example.com"
+                    >
+
+                </div>
+
+
+
+                <div>
+
+                    <label
+                        for="password"
+                        class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5"
+                    >
+                        Password
+                    </label>
+
+
+                    <input
+                        id="password"
+                        type="password"
+                        autocomplete="current-password"
+                        required
+                        class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="••••••••"
+                    >
+
+                </div>
+
+
+
+                <button
+                    id="login-button"
+                    type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm py-2.5 rounded-lg transition shadow-sm"
+                >
+                    Sign In
+                </button>
+
+
+            </form>
+
+
+
+            <div
+                id="login-status"
+                class="hidden mt-4 text-center text-xs text-slate-500"
+            ></div>
+
+
+        </div>
+
+
+
+        <p class="text-center text-[10px] text-slate-400 mt-6 uppercase tracking-wider">
+            Protected Administrative Interface
+        </p>
+
+
+    </div>
+
+
+
+    <!-- =====================================================
+         FIREBASE AUTH
+    ====================================================== -->
+
+    <script type="module">
+
+        import {
+            initializeApp,
+            getApps,
+            getApp
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+        import {
+            getAuth,
+            signInWithEmailAndPassword,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+
+        // ==================================================
+        // FIREBASE CONFIG FROM FLASK
+        // ==================================================
+
+        const firebaseConfig =
+            {{ firebase_config | tojson }};
+
+
+        // ==================================================
+        // DOM
+        // ==================================================
+
+        const form =
+            document.getElementById(
+                "superadmin-login-form"
+            );
+
+        const emailInput =
+            document.getElementById(
+                "email"
+            );
+
+        const passwordInput =
+            document.getElementById(
+                "password"
+            );
+
+        const loginButton =
+            document.getElementById(
+                "login-button"
+            );
+
+        const errorBox =
+            document.getElementById(
+                "login-error"
+            );
+
+        const statusBox =
+            document.getElementById(
+                "login-status"
+            );
+
+
+        // ==================================================
+        // UI HELPERS
+        // ==================================================
+
+        function showError(message) {
+
+            errorBox.textContent =
+                message || "Authentication failed.";
+
+            errorBox.classList.remove(
+                "hidden"
+            );
+        }
+
+
+        function clearError() {
+
+            errorBox.textContent = "";
+
+            errorBox.classList.add(
+                "hidden"
+            );
+        }
+
+
+        function setBusy(busy, text = "Sign In") {
+
+            loginButton.disabled = busy;
+
+            loginButton.textContent =
+                busy
+                    ? text
+                    : "Sign In";
+        }
+
+
+        // ==================================================
+        // FIREBASE INITIALIZATION
+        // ==================================================
+
+        let firebaseApp;
+
+        try {
+
+            if (
+                !firebaseConfig ||
+                !firebaseConfig.apiKey ||
+                !firebaseConfig.projectId
+            ) {
+                throw new Error(
+                    "Master Firebase configuration is unavailable."
+                );
+            }
+
+
+            firebaseApp =
+                getApps().length > 0
+                    ? getApp()
+                    : initializeApp(
+                        firebaseConfig
+                    );
+
+
+        } catch (error) {
+
+            console.error(
+                "❌ SUPERADMIN FIREBASE INITIALIZATION FAILED:",
+                error
+            );
+
+            showError(
+                "Unable to initialize the SuperAdmin authentication service."
+            );
+
+            setBusy(
+                true,
+                "Unavailable"
+            );
+
+            throw error;
+        }
+
+
+        const auth =
+            getAuth(
+                firebaseApp
+            );
+
+
+        console.log(
+            "✅ SUPERADMIN LOGIN READY:",
+            firebaseApp.options.projectId
+        );
+
+
+        // ==================================================
+        // IMPORTANT SECURITY BEHAVIOR
+        // ==================================================
+        //
+        // DO NOT use onAuthStateChanged() here.
+        //
+        // Firebase Auth persists the previous browser session.
+        // If we automatically react to that persisted user, simply
+        // opening /superadmin-login can silently become:
+        //
+        //     persisted Firebase user
+        //             ↓
+        //     /api/superadmin/session
+        //             ↓
+        //          dashboard
+        //
+        // The login page must require an explicit Sign In action.
+        //
+        // Therefore, any Firebase session that already exists when
+        // this page opens is cleared first.
+        //
+        // This does NOT grant access to the dashboard. The dashboard
+        // remains protected by the server-side Flask SuperAdmin
+        // session.
+        // ==================================================
+
+        try {
+
+            const existingUser =
+                auth.currentUser;
+
+            if (existingUser) {
+
+                console.warn(
+                    "⚠️ Existing Firebase session detected. Clearing it before showing login."
+                );
+
+                await signOut(
+                    auth
+                );
+
+                console.log(
+                    "✅ Previous Firebase session cleared. Explicit login required."
+                );
+            }
+
+        } catch (error) {
+
+            console.error(
+                "❌ Unable to clear previous Firebase session:",
+                error
+            );
+
+            showError(
+                "Unable to reset the previous authentication session. Please refresh and try again."
+            );
+        }
+
+
+        // ==================================================
+        // EXPLICIT SUPERADMIN LOGIN
+        // ==================================================
+
+        form.addEventListener(
+            "submit",
+            async (event) => {
+
+                event.preventDefault();
+
+                clearError();
+
+
+                const email =
+                    emailInput.value
+                        .trim()
+                        .toLowerCase();
+
+
+                const password =
+                    passwordInput.value;
+
+
+                if (!email || !password) {
+
+                    showError(
+                        "Please enter your SuperAdmin email and password."
+                    );
+
+                    return;
+                }
+
+
+                setBusy(
+                    true,
+                    "Authenticating..."
+                );
+
+
+                statusBox.classList.remove(
+                    "hidden"
+                );
+
+                statusBox.textContent =
+                    "Signing in to Master Firebase...";
+
+
+                try {
+
+                    // --------------------------------------
+                    // EXPLICIT FIREBASE LOGIN
+                    // --------------------------------------
+
+                    const credential =
+                        await signInWithEmailAndPassword(
+                            auth,
+                            email,
+                            password
+                        );
+
+
+                    const user =
+                        credential.user;
+
+
+                    console.log(
+                        "✅ FIREBASE AUTHENTICATED:",
+                        {
+                            uid: user.uid,
+                            projectId:
+                                firebaseApp.options.projectId
+                        }
+                    );
+
+
+                    statusBox.textContent =
+                        "Verifying SuperAdmin authorization...";
+
+
+                    // --------------------------------------
+                    // GET FRESH ID TOKEN
+                    // --------------------------------------
+
+                    const token =
+                        await user.getIdToken(
+                            true
+                        );
+
+
+                    // --------------------------------------
+                    // ESTABLISH SERVER SESSION
+                    // --------------------------------------
+
+                    const response =
+                        await fetch(
+                            "/api/superadmin/session",
+                            {
+                                method: "GET",
+
+                                headers: {
+                                    "Authorization":
+                                        `Bearer ${token}`,
+                                    "Accept":
+                                        "application/json"
+                                },
+
+                                credentials:
+                                    "same-origin",
+
+                                cache:
+                                    "no-store"
+                            }
+                        );
+
+
+                    let data = {};
+
+                    try {
+
+                        data =
+                            await response.json();
+
+                    } catch (_) {
+
+                        data = {};
+                    }
+
+
+                    if (
+                        !response.ok ||
+                        !data.success
+                    ) {
+
+                        await signOut(
+                            auth
+                        );
+
+                        throw new Error(
+                            data.error ||
+                            "This account is not authorized as SuperAdmin."
+                        );
+                    }
+
+
+                    console.log(
+                        "✅ SUPERADMIN SERVER SESSION ESTABLISHED"
+                    );
+
+
+                    statusBox.textContent =
+                        "Access granted. Opening Control Center...";
+
+
+                    // --------------------------------------
+                    // ONLY NOW REDIRECT
+                    // --------------------------------------
+
+                    window.location.replace(
+                        "/"
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ SUPERADMIN LOGIN FAILED:",
+                        error
+                    );
+
+
+                    let message =
+                        error.message ||
+                        "Authentication failed.";
+
+
+                    if (
+                        error.code ===
+                        "auth/invalid-credential"
+                    ) {
+
+                        message =
+                            "Invalid SuperAdmin email or password.";
+
+                    } else if (
+                        error.code ===
+                        "auth/user-not-found"
+                    ) {
+
+                        message =
+                            "No Firebase account exists for this email.";
+
+                    } else if (
+                        error.code ===
+                        "auth/wrong-password"
+                    ) {
+
+                        message =
+                            "Incorrect password.";
+
+                    } else if (
+                        error.code ===
+                        "auth/too-many-requests"
+                    ) {
+
+                        message =
+                            "Too many login attempts. Please try again later.";
+
+                    } else if (
+                        error.code ===
+                        "auth/invalid-email"
+                    ) {
+
+                        message =
+                            "Please enter a valid email address.";
+                    }
+
+
+                    showError(
+                        message
+                    );
+
+
+                    statusBox.classList.add(
+                        "hidden"
+                    );
+
+
+                    setBusy(
+                        false
+                    );
+                }
+            }
+        );
+
+    </script>
+
+</body>
+
+</html>

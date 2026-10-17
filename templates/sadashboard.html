@@ -1,0 +1,3202 @@
+<!DOCTYPE html>
+<html lang="en" class="h-screen overflow-hidden">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Super Admin Dashboard - Multi-Tenant Control Panel</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+
+<body class="bg-slate-100 text-slate-800 font-sans h-screen flex flex-col overflow-hidden select-none">
+
+
+
+
+    <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-4 space-y-4">
+
+
+        <!-- =====================================================
+             TOP STATUS BAR
+        ====================================================== -->
+
+        <header class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between flex-shrink-0">
+
+            <div class="flex items-center gap-3">
+
+                <div class="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
+
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+
+                </div>
+
+                <div>
+
+                    <h1 class="text-base font-extrabold text-slate-900 uppercase tracking-tight">
+                        Super Admin Orchestration Center
+                    </h1>
+
+                    <p class="text-xs text-slate-500 font-medium">
+                        Manage Multi-Tenant Facilities, Isolated Credentials, and System Staff Credentials
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="flex items-center gap-3">
+
+                <span
+                    id="active-tenant-badge"
+                    class="bg-teal-50 text-teal-700 border border-teal-200 px-3 py-1 rounded-md text-xs font-bold font-mono uppercase"
+                >
+                    Active Node: Master
+                </span>
+                
+                <button
+                    type="button"
+                    onclick="clearFacilityForm()"
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-md font-bold text-xs uppercase transition flex items-center gap-1.5"
+                >
+
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+
+                    New Facility Mode
+
+                </button>
+
+                <button
+                    type="button"
+                    id="btn-superadmin-logout"
+                    class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-md font-bold text-xs uppercase transition flex items-center gap-1.5">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                     Logout
+                </button>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- =====================================================
+             MAIN WORKSPACE
+        ====================================================== -->
+
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0 overflow-hidden">
+
+
+            <!-- =================================================
+                 LEFT: FACILITY MANAGEMENT
+            ================================================== -->
+
+            <section class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+
+                <div class="flex items-center gap-2 border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+
+                    <i data-lucide="building-2" class="w-4 h-4 text-teal-600"></i>
+
+                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        1. Facility Profile Parameters
+                    </h2>
+
+                </div>
+
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
+
+                    <input type="hidden" id="fac-id-hidden">
+
+
+                    <div>
+
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                            Facility Name *
+                        </label>
+
+                        <input
+                            type="text"
+                            id="fac-name"
+                            placeholder="e.g. LAKAN Main Clinic Node"
+                            class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-semibold focus:outline-none focus:border-teal-500"
+                        >
+
+                    </div>
+
+
+                    <div class="grid grid-cols-2 gap-2">
+
+                        <div>
+
+                            <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                                Contact Number
+                            </label>
+
+                            <input
+                                type="text"
+                                id="fac-contact"
+                                placeholder="0917-000-0000"
+                                class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-mono focus:outline-none focus:border-teal-500"
+                            >
+
+                        </div>
+
+
+                        <div>
+
+                            <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                                Facility Email
+                            </label>
+
+                            <input
+                                type="email"
+                                id="fac-email"
+                                placeholder="facility@domain.gov.ph"
+                                class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs focus:outline-none focus:border-teal-500"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                            Operational Site Address
+                        </label>
+
+                        <textarea
+                            id="fac-address"
+                            rows="2"
+                            placeholder="Full physical clinic address details..."
+                            class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs focus:outline-none focus:border-teal-500 resize-none"
+                        ></textarea>
+
+                    </div>
+
+
+                    <!-- FACILITY LIST -->
+
+                    <div class="border-t border-slate-100 pt-3">
+
+                        <label class="text-[10px] uppercase font-bold text-slate-400 block mb-2">
+                            Registered Facility Nodes
+                        </label>
+
+
+                        <div class="border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+
+                            <table class="w-full text-left text-xs">
+
+                                <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 font-bold">
+
+                                    <tr>
+
+                                        <th class="py-2 px-3">
+                                            Facility Name
+                                        </th>
+
+                                        <th class="py-2 px-3 text-right">
+                                            Actions
+                                        </th>
+
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody
+                                    id="facilities-table-body"
+                                    class="divide-y divide-slate-100"
+                                >
+
+                                    <tr>
+
+                                        <td
+                                            colspan="2"
+                                            class="p-3 text-center text-slate-400 italic"
+                                        >
+                                            Loading facility registry...
+                                        </td>
+
+                                    </tr>
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- =================================================
+                 CENTER: FIREBASE CONFIGURATION
+            ================================================== -->
+
+            <section class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+
+                <div class="flex items-center gap-2 border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+
+                    <i data-lucide="key-round" class="w-4 h-4 text-indigo-600"></i>
+
+                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        2. Infrastructure Credentials
+                    </h2>
+
+                </div>
+
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0 flex flex-col">
+
+
+                    <div>
+
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                            Google Apps Script Webhook URL
+                        </label>
+
+                        <input
+                            type="url"
+                            id="fac-webhook"
+                            placeholder="https://script.google.com/macros/s/.../exec"
+                            class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                        >
+
+                    </div>
+
+
+                    <div class="flex-1 flex flex-col">
+
+                        <div class="flex justify-between items-center mb-1">
+
+                            <label class="text-[10px] uppercase font-bold text-slate-500 block">
+                                Firebase Config JSON / JS Object
+                            </label>
+
+
+                            <button
+                                type="button"
+                                onclick="formatFirebaseConfigInput()"
+                                class="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold uppercase"
+                            >
+                                Format JSON
+                            </button>
+
+                        </div>
+
+
+                        <textarea
+                            id="fac-firebase-json"
+                            placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "tenant.firebaseapp.com",
+  "projectId": "tenant-project-id",
+  "storageBucket": "tenant.appspot.com",
+  "messagingSenderId": "000000000000",
+  "appId": "1:0000000:web:0000"
+}'
+                            class="w-full flex-1 bg-slate-900 text-teal-400 border border-slate-700 rounded p-2 text-[11px] font-mono focus:outline-none focus:border-teal-400 resize-none min-h-[180px]"
+                        ></textarea>
+
+                    </div>
+
+
+                    <div class="pt-2 flex justify-end gap-2 border-t border-slate-100 flex-shrink-0">
+
+
+                        <button
+                            type="button"
+                            onclick="deleteFacilityNode()"
+                            id="btn-delete-fac"
+                            class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-md font-bold text-xs uppercase transition hidden"
+                        >
+                            Delete Node
+                        </button>
+
+
+                        <button
+                            type="button"
+                            onclick="saveFacilityNode()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-bold text-xs uppercase shadow-sm transition flex items-center gap-1.5"
+                        >
+
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+
+                            Save Facility Parameters
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- =================================================
+                 RIGHT: USERS
+            ================================================== -->
+
+            <section class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+
+                    <div class="flex items-center gap-2">
+
+                        <i data-lucide="users" class="w-4 h-4 text-teal-600"></i>
+
+                        <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            3. Users, Roles & Permissions
+                        </h2>
+
+                    </div>
+
+
+                    <span
+                        id="user-fac-target-label"
+                        class="text-[9px] font-mono text-slate-400 font-bold uppercase"
+                    >
+                        Bound: Master
+                    </span>
+
+                </div>
+
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
+
+
+                    <!-- USER FORM -->
+
+                    <div class="text-[9px] text-slate-400 font-medium">
+                        User accounts can only be created and managed inside a selected facility tenant.
+                    </div>
+
+
+                    <form
+                        id="user-provision-form"
+                        onsubmit="event.preventDefault(); saveUserAccount();"
+                        class="space-y-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200"
+                    >
+
+                        <input type="hidden" id="usr-uid-hidden">
+
+                        <input type="hidden" id="usr-old-email-hidden">
+
+
+                        <div>
+
+                            <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">
+                                Full Name *
+                            </label>
+
+                            <input
+                                type="text"
+                                id="usr-name"
+                                required
+                                placeholder="Dr. Jane Doe"
+                                class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500"
+                            >
+
+                        </div>
+
+
+                        <div class="grid grid-cols-2 gap-2">
+
+                            <div>
+
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">
+                                    Email Address *
+                                </label>
+
+                                <input
+                                    type="email"
+                                    id="usr-email"
+                                    required
+                                    placeholder="staff@facility.gov.ph"
+                                    class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">
+                                    Password
+                                </label>
+
+                                <input
+                                    type="password"
+                                    id="usr-password"
+                                    placeholder="••••••••"
+                                    class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="grid grid-cols-2 gap-2">
+
+                            <div>
+
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">
+                                    Position / Role
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="usr-position"
+                                    placeholder="Clinical Physician"
+                                    class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">
+                                    Permission Clearance
+                                </label>
+
+                                <select
+                                    id="usr-permission"
+                                    class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500 font-bold text-slate-700"
+                                >
+
+                                    <option value="Editor">
+                                        Editor (Full Edit Access)
+                                    </option>
+
+                                    <option value="Viewer">
+                                        Viewer (Read-Only Access)
+                                    </option>
+
+                                    <option value="Admin">
+                                        Admin (Facility Administrator)
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="pt-1 flex justify-end gap-1.5">
+
+                            <button
+                                type="button"
+                                onclick="clearUserForm()"
+                                class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded text-[11px] font-bold uppercase transition"
+                            >
+                                Reset
+                            </button>
+
+
+                            <button
+                                type="submit"
+                                id="btn-save-user"
+                                class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-[11px] font-bold uppercase shadow-sm transition flex items-center gap-1"
+                            >
+
+                                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+
+                                Save User
+
+                            </button>
+
+                        </div>
+
+                    </form>
+
+
+
+                    <!-- USERS TABLE -->
+
+                    <div class="border border-slate-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
+
+                        <table class="w-full text-left text-xs">
+
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 font-bold">
+
+                                <tr>
+
+                                    <th class="py-2 px-2.5">
+                                        Staff User
+                                    </th>
+
+                                    <th class="py-2 px-2.5">
+                                        Clearance
+                                    </th>
+
+                                    <th class="py-2 px-2.5 text-center">
+                                        Actions
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+
+                            <tbody
+                                id="users-table-body"
+                                class="divide-y divide-slate-100"
+                            >
+
+                                <tr>
+
+                                    <td
+                                        colspan="3"
+                                        class="p-3 text-center text-slate-400 italic"
+                                    >
+                                        Select a facility to load user registry...
+                                    </td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+
+    <!-- =========================================================
+         FIREBASE + SUPERADMIN CONTROLLER
+    ========================================================== -->
+<script type="module">
+    import {
+        initializeApp,
+        getApps,
+        getApp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+import {
+    getAuth,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+
+        // =====================================================
+        // GLOBAL STATE
+        // =====================================================
+
+        let cachedFacilities = [];
+        let cachedUsers = [];
+
+        let firebaseApp = null;
+        let auth = null;
+
+        let currentSuperAdmin = null;
+        let authReadyPromise = null;
+
+        let superAdminCsrfToken = null;
+
+        let activeFacilityId = null;
+
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            async () => {
+
+                lucide.createIcons();
+
+                try {
+
+                    await initializeSuperAdminFirebase();
+
+                    await waitForSuperAdminAuthentication();
+
+                    await establishSuperAdminServerSession();
+
+                    await loadFacilitiesList();
+
+                    showNoFacilitySelected();
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ SUPERADMIN DASHBOARD INITIALIZATION FAILED:",
+                        error
+                    );
+
+                    showFatalInitializationError(
+                        error.message
+                    );
+                }
+            }
+        );
+
+
+        // =====================================================
+        // MASTER FIREBASE INITIALIZATION
+        // =====================================================
+        //
+        // IMPORTANT:
+        // The "/" Flask route is already protected by the
+        // server-side SuperAdmin session.
+        //
+        // Therefore the Master Firebase client configuration
+        // is injected directly into this protected page.
+        //
+        // We intentionally DO NOT call /api/firebase-config
+        // during dashboard startup. Doing so before Firebase
+        // authentication exists creates a circular dependency.
+        //
+        // =====================================================
+
+        async function initializeSuperAdminFirebase() {
+
+            console.log(
+                "🔥 INITIALIZING SUPERADMIN FIREBASE..."
+            );
+
+
+            const config =
+                {{ firebase_config | tojson }};
+
+
+            if (
+                !config ||
+                !config.apiKey ||
+                !config.authDomain ||
+                !config.projectId
+            ) {
+
+                throw new Error(
+                    "Master Firebase configuration is incomplete."
+                );
+            }
+
+
+            const apps =
+                getApps();
+
+
+            if (apps.length > 0) {
+
+                const existingApp =
+                    getApp();
+
+
+                if (
+                    existingApp.options.projectId !==
+                    config.projectId
+                ) {
+
+                    throw new Error(
+                        "A different Firebase project is already initialized on the SuperAdmin dashboard."
+                    );
+                }
+
+
+                firebaseApp =
+                    existingApp;
+
+            } else {
+
+                firebaseApp =
+                    initializeApp(
+                        config
+                    );
+            }
+
+
+            auth =
+                getAuth(
+                    firebaseApp
+                );
+
+
+            console.log(
+                "✅ MASTER FIREBASE INITIALIZED:",
+                firebaseApp.options.projectId
+            );
+        }
+
+
+        // =====================================================
+        // FIREBASE AUTHENTICATION
+        // =====================================================
+
+        function waitForSuperAdminAuthentication() {
+
+            if (currentSuperAdmin) {
+
+                return Promise.resolve(
+                    currentSuperAdmin
+                );
+            }
+
+
+            if (authReadyPromise) {
+
+                return authReadyPromise;
+            }
+
+
+            authReadyPromise =
+                new Promise(
+                    (resolve, reject) => {
+
+                        let settled = false;
+
+
+                        const timeout =
+                            setTimeout(
+                                () => {
+
+                                    if (settled) {
+                                        return;
+                                    }
+
+
+                                    settled = true;
+
+
+                                    reject(
+                                        new Error(
+                                            "Timed out waiting for SuperAdmin Firebase authentication."
+                                        )
+                                    );
+
+                                },
+                                10000
+                            );
+
+
+                        onAuthStateChanged(
+                            auth,
+                            (user) => {
+
+                                if (settled) {
+                                    return;
+                                }
+
+
+                                if (!user) {
+
+                                    return;
+                                }
+
+
+                                currentSuperAdmin =
+                                    user;
+
+
+                                clearTimeout(
+                                    timeout
+                                );
+
+
+                                settled = true;
+
+
+                                console.log(
+                                    "✅ SUPERADMIN FIREBASE AUTHENTICATED:",
+                                    {
+                                        email:
+                                            user.email,
+
+                                        uid:
+                                            user.uid,
+
+                                        projectId:
+                                            firebaseApp.options.projectId
+                                    }
+                                );
+
+
+                                resolve(
+                                    user
+                                );
+                            }
+                        );
+                    }
+                );
+
+
+            return authReadyPromise;
+        }
+
+
+async function getSuperAdminIdToken() {
+    await waitForSuperAdminAuthentication();
+    if (!currentSuperAdmin) throw new Error("No authenticated SuperAdmin account.");
+
+const token = await currentSuperAdmin.getIdToken();
+    if (!token) throw new Error("Firebase did not return an ID token.");
+
+    window.motherToken = token;
+    console.warn("🔥 MOTHER TOKEN CAPTURED LOCALLY — DO NOT SHARE");
+
+    return token;
+}
+
+        // =====================================================
+        // SERVER-SIDE SUPERADMIN SESSION
+        // =====================================================
+        //
+        // Firebase Authentication proves identity.
+        //
+        // /api/superadmin/session verifies that identity against
+        // Mother DB and creates the trusted Flask session.
+        //
+        // =====================================================
+
+        async function establishSuperAdminServerSession() {
+
+            const token =
+                await getSuperAdminIdToken();
+
+
+            console.log(
+                "🔐 SUPERADMIN: Establishing Flask server session..."
+            );
+
+
+            const response =
+                await fetch(
+                    "/api/superadmin/session",
+                    {
+                        method:
+                            "GET",
+
+                        credentials:
+                            "same-origin",
+
+                        cache:
+                            "no-store",
+
+                        headers: {
+                            "Authorization":
+                                `Bearer ${token}`
+                        }
+                    }
+                );
+
+
+            let data = {};
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch (error) {
+
+                throw new Error(
+                    "SuperAdmin session endpoint returned invalid JSON."
+                );
+            }
+
+
+            if (
+                !response.ok ||
+                !data.success
+            ) {
+
+                throw new Error(
+                    data.error ||
+                    "Unable to establish the SuperAdmin server session."
+                );
+            }
+
+
+            if (
+                data.clearancePermission !==
+                "SuperAdmin"
+            ) {
+
+                throw new Error(
+                    "Server rejected the account as SuperAdmin."
+                );
+            }
+
+
+            if (
+                data.facility_id !==
+                "master"
+            ) {
+
+                throw new Error(
+                    "Server rejected the SuperAdmin master-node assignment."
+                );
+            }
+
+
+            console.log(
+                "✅ SUPERADMIN FLASK SESSION ESTABLISHED"
+            );
+
+
+            return data;
+        }
+
+
+        // =====================================================
+        // CSRF TOKEN
+        // =====================================================
+
+        async function getSuperAdminCsrfToken() {
+
+            if (superAdminCsrfToken) {
+
+                return superAdminCsrfToken;
+            }
+
+
+            const token =
+                await getSuperAdminIdToken();
+
+
+            const response =
+                await fetch(
+                    "/api/superadmin/csrf-token",
+                    {
+                        method:
+                            "GET",
+
+                        cache:
+                            "no-store",
+
+                        credentials:
+                            "same-origin",
+
+                        headers: {
+                            "Authorization":
+                                `Bearer ${token}`
+                        }
+                    }
+                );
+
+
+            let data = {};
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch (error) {
+
+                throw new Error(
+                    "CSRF endpoint returned invalid JSON."
+                );
+            }
+
+
+            if (
+                !response.ok ||
+                !data.success ||
+                !data.csrf_token
+            ) {
+
+                throw new Error(
+                    data.error ||
+                    "Unable to initialize SuperAdmin CSRF protection."
+                );
+            }
+
+
+            superAdminCsrfToken =
+                data.csrf_token;
+
+
+            console.log(
+                "✅ SUPERADMIN CSRF TOKEN INITIALIZED"
+            );
+
+
+            return superAdminCsrfToken;
+        }
+
+
+        // =====================================================
+        // AUTHENTICATED API WRAPPER
+        // =====================================================
+
+        async function superAdminFetch(
+            url,
+            options = {}
+        ) {
+
+            const token =
+                await getSuperAdminIdToken();
+
+
+            const method =
+                (
+                    options.method ||
+                    "GET"
+                ).toUpperCase();
+
+
+            const headers = {
+                ...(options.headers || {}),
+
+                "Authorization":
+                    `Bearer ${token}`
+            };
+
+
+            const stateChanging =
+                [
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE"
+                ].includes(
+                    method
+                );
+
+
+            if (stateChanging) {
+
+                headers["X-CSRF-Token"] =
+                    await getSuperAdminCsrfToken();
+            }
+
+
+            console.log(
+                "🔐 SUPERADMIN API REQUEST:",
+                {
+                    url,
+                    method,
+                    csrfProtected:
+                        stateChanging
+                }
+            );
+
+
+            const response =
+                await fetch(
+                    url,
+                    {
+                        ...options,
+
+                        method,
+
+                        headers,
+
+                        credentials:
+                            "same-origin"
+                    }
+                );
+
+
+            if (
+                response.status === 401
+            ) {
+
+                throw new Error(
+                    "SuperAdmin authentication was rejected by the Flask server."
+                );
+            }
+
+
+            return response;
+        }
+
+
+        // =====================================================
+        // SAFE JSON RESPONSE
+        // =====================================================
+
+        async function readJsonResponse(
+            response,
+            fallbackMessage
+        ) {
+
+            let data = null;
+
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch (error) {
+
+                throw new Error(
+                    fallbackMessage
+                );
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data?.error ||
+                    fallbackMessage
+                );
+            }
+
+
+            return data;
+        }
+
+
+        // =====================================================
+        // FACILITY REGISTRY
+        // =====================================================
+
+        async function loadFacilitiesList() {
+
+            const tbody =
+                document.getElementById(
+                    "facilities-table-body"
+                );
+
+
+            tbody.innerHTML = `
+                <tr>
+                    <td
+                        colspan="2"
+                        class="p-3 text-center text-slate-400 italic"
+                    >
+                        Loading facility registry...
+                    </td>
+                </tr>
+            `;
+
+
+            try {
+
+                const response =
+                    await superAdminFetch(
+                        "/api/facilities"
+                    );
+
+
+                const data =
+                    await readJsonResponse(
+                        response,
+                        "Unable to load facility registry."
+                    );
+
+
+                if (!data.success) {
+
+                    throw new Error(
+                        data.error ||
+                        "Unable to load facility registry."
+                    );
+                }
+
+
+                cachedFacilities =
+                    Array.isArray(
+                        data.facilities
+                    )
+                        ? data.facilities
+                        : [];
+
+
+                renderFacilities();
+
+            } catch (error) {
+
+                console.error(
+                    "❌ Facility registry error:",
+                    error
+                );
+
+
+                tbody.innerHTML = `
+                    <tr>
+                        <td
+                            colspan="2"
+                            class="p-3 text-center text-rose-500 font-semibold"
+                        >
+                            ${escapeHtml(error.message)}
+                        </td>
+                    </tr>
+                `;
+
+
+                throw error;
+            }
+        }
+
+
+        function renderFacilities() {
+
+            const tbody =
+                document.getElementById(
+                    "facilities-table-body"
+                );
+
+
+            tbody.innerHTML = "";
+
+
+            if (
+                cachedFacilities.length === 0
+            ) {
+
+                tbody.innerHTML = `
+                    <tr>
+                        <td
+                            colspan="2"
+                            class="p-3 text-center text-slate-400 italic"
+                        >
+                            No facility nodes registered yet.
+                        </td>
+                    </tr>
+                `;
+
+                return;
+            }
+
+
+            cachedFacilities.forEach(
+                (facility) => {
+
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+
+                    tr.className =
+                        "hover:bg-slate-50 transition";
+
+
+                    const nameCell =
+                        document.createElement(
+                            "td"
+                        );
+
+
+                    nameCell.className =
+                        "py-2 px-3";
+
+
+                    const nameButton =
+                        document.createElement(
+                            "button"
+                        );
+
+
+                    nameButton.type =
+                        "button";
+
+                    nameButton.className =
+                        "font-bold text-slate-800 text-left hover:text-teal-700";
+
+                    nameButton.textContent =
+                        facility.facility_name ||
+                        facility.id ||
+                        "Unnamed facility";
+
+
+                    nameButton.addEventListener(
+                        "click",
+                        () => {
+                            selectFacilityNode(
+                                facility.id
+                            );
+                        }
+                    );
+
+
+                    nameCell.appendChild(
+                        nameButton
+                    );
+
+
+                    const actionCell =
+                        document.createElement(
+                            "td"
+                        );
+
+
+                    actionCell.className =
+                        "py-2 px-3 text-right";
+
+
+                    const manageButton =
+                        document.createElement(
+                            "button"
+                        );
+
+
+                    manageButton.type =
+                        "button";
+
+                    manageButton.className =
+                        "text-xs text-indigo-600 hover:text-indigo-800 font-bold";
+
+                    manageButton.textContent =
+                        "Manage";
+
+
+                    manageButton.addEventListener(
+                        "click",
+                        () => {
+                            selectFacilityNode(
+                                facility.id
+                            );
+                        }
+                    );
+
+
+                    actionCell.appendChild(
+                        manageButton
+                    );
+
+
+                    tr.appendChild(
+                        nameCell
+                    );
+
+                    tr.appendChild(
+                        actionCell
+                    );
+
+
+                    tbody.appendChild(
+                        tr
+                    );
+                }
+            );
+        }
+
+
+        // =====================================================
+        // SELECT FACILITY
+        // =====================================================
+
+        window.selectFacilityNode =
+            async function (
+                facilityId
+            ) {
+
+                if (
+                    !facilityId ||
+                    facilityId === "master"
+                ) {
+
+                    alert(
+                        "The Master node cannot be selected as a facility tenant."
+                    );
+
+                    return;
+                }
+
+
+                const facility =
+                    cachedFacilities.find(
+                        item =>
+                            item.id === facilityId
+                    );
+
+
+                if (!facility) {
+
+                    alert(
+                        "The selected facility is no longer present in the registry."
+                    );
+
+                    return;
+                }
+
+
+                const previousFacilityId =
+                    activeFacilityId;
+
+
+                try {
+
+                    // -------------------------------------------------
+                    // First establish the server-side active tenant.
+                    // No browser-supplied facility header is used.
+                    // -------------------------------------------------
+
+                    const selectResponse =
+                        await superAdminFetch(
+                            "/api/select-facility",
+                            {
+                                method:
+                                    "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body:
+                                    JSON.stringify({
+                                        facility_id:
+                                            facility.id
+                                    })
+                            }
+                        );
+
+
+                    const selectData =
+                        await readJsonResponse(
+                            selectResponse,
+                            "Unable to select the facility."
+                        );
+
+
+                    if (!selectData.success) {
+
+                        throw new Error(
+                            selectData.error ||
+                            "Unable to select the facility."
+                        );
+                    }
+
+
+                    activeFacilityId =
+                        facility.id;
+
+
+                    updateFacilitySelectionUI(
+                        facility
+                    );
+
+
+                    // -------------------------------------------------
+                    // Load protected facility configuration only AFTER
+                    // the server-side active facility has been set.
+                    // -------------------------------------------------
+
+                    const response =
+                        await superAdminFetch(
+                            `/api/facilities/${encodeURIComponent(
+                                facility.id
+                            )}`
+                        );
+
+
+                    const data =
+                        await readJsonResponse(
+                            response,
+                            "Unable to load facility configuration."
+                        );
+
+
+                    if (!data.success) {
+
+                        throw new Error(
+                            data.error ||
+                            "Unable to load facility configuration."
+                        );
+                    }
+
+
+                    const selectedFacility =
+                        data.facility || {};
+
+
+                    populateFacilityForm(
+                        selectedFacility
+                    );
+
+
+                    await loadUsersList(
+                        facility.id
+                    );
+
+
+                    console.log(
+                        "✅ ACTIVE FACILITY:",
+                        facility.id
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Facility selection failed:",
+                        error
+                    );
+
+
+                    activeFacilityId =
+                        previousFacilityId;
+
+
+                    alert(
+                        error.message
+                    );
+                }
+            };
+
+
+        function updateFacilitySelectionUI(
+            facility
+        ) {
+
+            document.getElementById(
+                "active-tenant-badge"
+            ).textContent =
+                `Active Node: ${
+                    facility.facility_name ||
+                    facility.id
+                }`;
+
+
+            document.getElementById(
+                "user-fac-target-label"
+            ).textContent =
+                `Bound: ${
+                    facility.id
+                }`;
+
+
+            document.getElementById(
+                "btn-delete-fac"
+            ).classList.remove(
+                "hidden"
+            );
+        }
+
+
+        function populateFacilityForm(
+            facility
+        ) {
+
+            document.getElementById(
+                "fac-id-hidden"
+            ).value =
+                facility.id || "";
+
+
+            document.getElementById(
+                "fac-name"
+            ).value =
+                facility.facility_name || "";
+
+
+            document.getElementById(
+                "fac-contact"
+            ).value =
+                facility.contact_number || "";
+
+
+            document.getElementById(
+                "fac-email"
+            ).value =
+                facility.email || "";
+
+
+            document.getElementById(
+                "fac-address"
+            ).value =
+                facility.address || "";
+
+
+            document.getElementById(
+                "fac-webhook"
+            ).value =
+                facility.gas_webhook_url || "";
+
+
+            document.getElementById(
+                "fac-firebase-json"
+            ).value =
+                JSON.stringify(
+                    facility.firebase_config || {},
+                    null,
+                    2
+                );
+        }
+
+
+        function showNoFacilitySelected() {
+
+            activeFacilityId =
+                null;
+
+
+            document.getElementById(
+                "active-tenant-badge"
+            ).textContent =
+                "Active Node: Master";
+
+
+            document.getElementById(
+                "user-fac-target-label"
+            ).textContent =
+                "Bound: Select Facility";
+
+
+            document.getElementById(
+                "users-table-body"
+            ).innerHTML = `
+                <tr>
+                    <td
+                        colspan="3"
+                        class="p-3 text-center text-slate-400 italic"
+                    >
+                        Select a facility to load user registry...
+                    </td>
+                </tr>
+            `;
+        }
+
+
+        // =====================================================
+        // NEW FACILITY MODE
+        // =====================================================
+
+        window.clearFacilityForm =
+            function () {
+
+                activeFacilityId =
+                    null;
+
+
+                document.getElementById(
+                    "fac-id-hidden"
+                ).value = "";
+
+
+                document.getElementById(
+                    "fac-name"
+                ).value = "";
+
+
+                document.getElementById(
+                    "fac-contact"
+                ).value = "";
+
+
+                document.getElementById(
+                    "fac-email"
+                ).value = "";
+
+
+                document.getElementById(
+                    "fac-address"
+                ).value = "";
+
+
+                document.getElementById(
+                    "fac-webhook"
+                ).value = "";
+
+
+                document.getElementById(
+                    "fac-firebase-json"
+                ).value = "";
+
+
+                document.getElementById(
+                    "active-tenant-badge"
+                ).textContent =
+                    "Active Node: Master / New";
+
+
+                document.getElementById(
+                    "user-fac-target-label"
+                ).textContent =
+                    "Bound: Select Facility";
+
+
+                document.getElementById(
+                    "btn-delete-fac"
+                ).classList.add(
+                    "hidden"
+                );
+
+
+                showNoFacilitySelected();
+
+
+                clearUserForm();
+            };
+
+
+        // =====================================================
+        // FIREBASE CONFIG FORMATTER
+        // =====================================================
+
+        window.formatFirebaseConfigInput =
+            function () {
+
+                const textarea =
+                    document.getElementById(
+                        "fac-firebase-json"
+                    );
+
+
+                const raw =
+                    textarea.value.trim();
+
+
+                if (!raw) {
+
+                    return;
+                }
+
+
+                try {
+
+                    const parsed =
+                        JSON.parse(
+                            raw
+                        );
+
+
+                    textarea.value =
+                        JSON.stringify(
+                            parsed,
+                            null,
+                            2
+                        );
+
+                } catch (error) {
+
+                    alert(
+                        "Invalid JSON format. Please correct the Firebase configuration."
+                    );
+                }
+            };
+
+
+        // =====================================================
+        // SAVE FACILITY
+        // =====================================================
+
+        window.saveFacilityNode =
+            async function () {
+
+                const facilityId =
+                    document.getElementById(
+                        "fac-id-hidden"
+                    ).value.trim();
+
+
+                const facilityName =
+                    document.getElementById(
+                        "fac-name"
+                    ).value.trim();
+
+
+                if (!facilityName) {
+
+                    alert(
+                        "Facility Name is required."
+                    );
+
+                    return;
+                }
+
+
+                let firebaseConfig = {};
+
+                const rawJson =
+                    document.getElementById(
+                        "fac-firebase-json"
+                    ).value.trim();
+
+
+                if (rawJson) {
+
+                    try {
+
+                        firebaseConfig =
+                            JSON.parse(
+                                rawJson
+                            );
+
+                    } catch (error) {
+
+                        alert(
+                            "Invalid JSON inside Firebase Config."
+                        );
+
+                        return;
+                    }
+                }
+
+
+                const payload = {
+
+                    facility_name:
+                        facilityName,
+
+                    contact_number:
+                        document.getElementById(
+                            "fac-contact"
+                        ).value.trim(),
+
+                    email:
+                        document.getElementById(
+                            "fac-email"
+                        ).value.trim(),
+
+                    address:
+                        document.getElementById(
+                            "fac-address"
+                        ).value.trim(),
+
+                    gas_webhook_url:
+                        document.getElementById(
+                            "fac-webhook"
+                        ).value.trim(),
+
+                    firebase_config:
+                        firebaseConfig
+                };
+
+
+                const endpoint =
+                    facilityId
+                        ? `/api/facilities/${encodeURIComponent(
+                            facilityId
+                        )}/update`
+                        : "/api/facilities";
+
+
+                try {
+
+                    const response =
+                        await superAdminFetch(
+                            endpoint,
+                            {
+                                method:
+                                    "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body:
+                                    JSON.stringify(
+                                        payload
+                                    )
+                            }
+                        );
+
+
+                    const data =
+                        await readJsonResponse(
+                            response,
+                            "Facility operation failed."
+                        );
+
+
+                    if (!data.success) {
+
+                        throw new Error(
+                            data.error ||
+                            "Facility operation failed."
+                        );
+                    }
+
+
+                    alert(
+                        data.message ||
+                        "Facility parameters saved successfully."
+                    );
+
+
+                    const savedFacilityId =
+                        data.facility_id ||
+                        facilityId;
+
+
+                    await loadFacilitiesList();
+
+
+                    if (
+                        savedFacilityId &&
+                        savedFacilityId !== "master"
+                    ) {
+
+                        await selectFacilityNode(
+                            savedFacilityId
+                        );
+
+                    } else {
+
+                        clearFacilityForm();
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Save facility error:",
+                        error
+                    );
+
+
+                    alert(
+                        error.message
+                    );
+                }
+            };
+
+
+        // =====================================================
+        // DELETE FACILITY
+        // =====================================================
+
+        window.deleteFacilityNode =
+            async function () {
+
+                const facilityId =
+                    document.getElementById(
+                        "fac-id-hidden"
+                    ).value.trim();
+
+
+                if (
+                    !facilityId ||
+                    facilityId === "master"
+                ) {
+
+                    alert(
+                        "A valid facility tenant must be selected."
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    !confirm(
+                        `Are you sure you want to delete facility node [${facilityId}]?`
+                    )
+                ) {
+
+                    return;
+                }
+
+
+                try {
+
+                    const response =
+                        await superAdminFetch(
+                            `/api/facilities/${encodeURIComponent(
+                                facilityId
+                            )}/delete`,
+                            {
+                                method:
+                                    "POST"
+                            }
+                        );
+
+
+                    const data =
+                        await readJsonResponse(
+                            response,
+                            "Facility deletion failed."
+                        );
+
+
+                    if (!data.success) {
+
+                        throw new Error(
+                            data.error ||
+                            "Facility deletion failed."
+                        );
+                    }
+
+
+                    alert(
+                        data.message ||
+                        "Facility removed successfully."
+                    );
+
+
+                    clearFacilityForm();
+
+                    await loadFacilitiesList();
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Delete facility error:",
+                        error
+                    );
+
+
+                    alert(
+                        error.message
+                    );
+                }
+            };
+
+
+        // =====================================================
+        // USER REGISTRY
+        // =====================================================
+
+        window.loadUsersList =
+            async function (
+                facilityId = activeFacilityId
+            ) {
+
+                const tbody =
+                    document.getElementById(
+                        "users-table-body"
+                    );
+
+
+                if (
+                    !facilityId ||
+                    facilityId === "master"
+                ) {
+
+                    showNoFacilitySelected();
+
+                    return;
+                }
+
+
+                tbody.innerHTML = `
+                    <tr>
+                        <td
+                            colspan="3"
+                            class="p-3 text-center text-slate-400 italic"
+                        >
+                            Loading user registry...
+                        </td>
+                    </tr>
+                `;
+
+
+                try {
+
+                    /*
+                     * The query parameter is retained for UI
+                     * compatibility only.
+                     *
+                     * The backend MUST derive the authoritative
+                     * facility from the server-side SuperAdmin
+                     * session.
+                     */
+
+                    const url =
+                        `/api/users?facility_id=${encodeURIComponent(
+                            facilityId
+                        )}`;
+
+
+                    const response =
+                        await superAdminFetch(
+                            url
+                        );
+
+
+                    const data =
+                        await readJsonResponse(
+                            response,
+                            "Unable to load user registry."
+                        );
+
+
+                    if (!data.success) {
+
+                        throw new Error(
+                            data.error ||
+                            "Unable to load user registry."
+                        );
+                    }
+
+
+                    cachedUsers =
+                        Array.isArray(
+                            data.users
+                        )
+                            ? data.users
+                            : [];
+
+
+                    renderUsers();
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ User registry error:",
+                        error
+                    );
+
+
+                    tbody.innerHTML = `
+                        <tr>
+                            <td
+                                colspan="3"
+                                class="p-3 text-center text-rose-500 font-semibold"
+                            >
+                                ${escapeHtml(error.message)}
+                            </td>
+                        </tr>
+                    `;
+                }
+            };
+
+
+        function renderUsers() {
+
+            const tbody =
+                document.getElementById(
+                    "users-table-body"
+                );
+
+
+            tbody.innerHTML = "";
+
+
+            if (
+                cachedUsers.length === 0
+            ) {
+
+                tbody.innerHTML = `
+                    <tr>
+                        <td
+                            colspan="3"
+                            class="p-3 text-center text-slate-400 italic"
+                        >
+                            No users found for this facility.
+                        </td>
+                    </tr>
+                `;
+
+                return;
+            }
+
+
+            cachedUsers.forEach(
+                (user) => {
+
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+
+                    tr.className =
+                        "hover:bg-slate-50 transition";
+
+
+                    const staffCell =
+                        document.createElement(
+                            "td"
+                        );
+
+
+                    staffCell.className =
+                        "py-2 px-2.5";
+
+
+                    const nameDiv =
+                        document.createElement(
+                            "div"
+                        );
+
+
+                    nameDiv.className =
+                        "font-bold text-slate-800 text-xs";
+
+
+                    nameDiv.textContent =
+                        user.lastNameFirstName ||
+                        "Unnamed";
+
+
+                    const emailDiv =
+                        document.createElement(
+                            "div"
+                        );
+
+
+                    emailDiv.className =
+                        "text-[10px] text-slate-400 font-mono";
+
+
+                    emailDiv.textContent =
+                        user.email || "";
+
+
+                    staffCell.appendChild(
+                        nameDiv
+                    );
+
+                    staffCell.appendChild(
+                        emailDiv
+                    );
+
+
+                    const clearanceCell =
+                        document.createElement(
+                            "td"
+                        );
+
+
+                    clearanceCell.className =
+                        "py-2 px-2.5";
+
+
+                    const clearance =
+                        user.clearancePermission ||
+                        "Viewer";
+
+
+                    const badge =
+                        document.createElement(
+                            "span"
+                        );
+
+
+                    badge.className =
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase " +
+                        (
+                            clearance === "Admin"
+                                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                : "bg-slate-100 text-slate-600"
+                        );
+
+
+                    badge.textContent =
+                        clearance;
+
+
+                    clearanceCell.appendChild(
+                        badge
+                    );
+
+
+                    const actionsCell =
+                        document.createElement(
+                            "td"
+                        );
+
+
+                    actionsCell.className =
+                        "py-2 px-2.5 text-center";
+
+
+                    const editButton =
+                        createUserActionButton(
+                            "Edit",
+                            "bg-slate-100 hover:bg-slate-200 text-slate-700",
+                            () => {
+                                editUserAccount(
+                                    user.uid
+                                );
+                            }
+                        );
+
+
+                    const resetButton =
+                        createUserActionButton(
+                            "Reset",
+                            "bg-amber-50 hover:bg-amber-100 text-amber-700",
+                            () => {
+                                resetUserPassword(
+                                    user.uid
+                                );
+                            }
+                        );
+
+
+                    const deleteButton =
+                        createUserActionButton(
+                            "Del",
+                            "bg-rose-50 hover:bg-rose-100 text-rose-600",
+                            () => {
+                                deleteUserAccount(
+                                    user.uid,
+                                    user.email || ""
+                                );
+                            }
+                        );
+
+
+                    actionsCell.appendChild(
+                        editButton
+                    );
+
+                    actionsCell.appendChild(
+                        resetButton
+                    );
+
+                    actionsCell.appendChild(
+                        deleteButton
+                    );
+
+
+                    tr.appendChild(
+                        staffCell
+                    );
+
+                    tr.appendChild(
+                        clearanceCell
+                    );
+
+                    tr.appendChild(
+                        actionsCell
+                    );
+
+
+                    tbody.appendChild(
+                        tr
+                    );
+                }
+            );
+        }
+
+
+        function createUserActionButton(
+            label,
+            classes,
+            handler
+        ) {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.type =
+                "button";
+
+
+            button.className =
+                `text-[10px] ${classes} px-1.5 py-0.5 rounded font-bold mr-1`;
+
+
+            button.textContent =
+                label;
+
+
+            button.addEventListener(
+                "click",
+                handler
+            );
+
+
+            return button;
+        }
+
+
+        // =====================================================
+        // USER FORM RESET
+        // =====================================================
+
+        window.clearUserForm =
+            function () {
+
+                document.getElementById(
+                    "usr-uid-hidden"
+                ).value = "";
+
+
+                document.getElementById(
+                    "usr-old-email-hidden"
+                ).value = "";
+
+
+                document.getElementById(
+                    "usr-name"
+                ).value = "";
+
+
+                document.getElementById(
+                    "usr-email"
+                ).value = "";
+
+
+                document.getElementById(
+                    "usr-password"
+                ).value = "";
+
+
+                document.getElementById(
+                    "usr-position"
+                ).value = "";
+
+
+                document.getElementById(
+                    "usr-permission"
+                ).value =
+                    "Editor";
+
+
+                document.getElementById(
+                    "usr-password"
+                ).required =
+                    false;
+
+
+                document.getElementById(
+                    "btn-save-user"
+                ).innerHTML = `
+                    <i
+                        data-lucide="user-plus"
+                        class="w-3.5 h-3.5"
+                    ></i>
+                    Save User
+                `;
+
+
+                lucide.createIcons();
+            };
+
+
+        // =====================================================
+        // EDIT USER
+        // =====================================================
+
+        window.editUserAccount =
+            function (
+                uid
+            ) {
+
+                const user =
+                    cachedUsers.find(
+                        item =>
+                            item.uid === uid
+                    );
+
+
+                if (!user) {
+
+                    alert(
+                        "The selected user could not be found."
+                    );
+
+                    return;
+                }
+
+
+                document.getElementById(
+                    "usr-uid-hidden"
+                ).value =
+                    user.uid || "";
+
+
+                document.getElementById(
+                    "usr-old-email-hidden"
+                ).value =
+                    user.email || "";
+
+
+                document.getElementById(
+                    "usr-name"
+                ).value =
+                    user.lastNameFirstName || "";
+
+
+                document.getElementById(
+                    "usr-email"
+                ).value =
+                    user.email || "";
+
+
+                document.getElementById(
+                    "usr-password"
+                ).value = "";
+
+
+                document.getElementById(
+                    "usr-position"
+                ).value =
+                    user.positionRole || "";
+
+
+                document.getElementById(
+                    "usr-permission"
+                ).value =
+                    (
+                        [
+                            "Viewer",
+                            "Editor",
+                            "Admin"
+                        ].includes(
+                            user.clearancePermission
+                        )
+                            ? user.clearancePermission
+                            : "Editor"
+                    );
+
+
+                document.getElementById(
+                    "usr-password"
+                ).required =
+                    false;
+
+
+                document.getElementById(
+                    "btn-save-user"
+                ).innerHTML = `
+                    <i
+                        data-lucide="save"
+                        class="w-3.5 h-3.5"
+                    ></i>
+                    Update User
+                `;
+
+
+                lucide.createIcons();
+            };
+
+
+        // =====================================================
+        // CREATE / UPDATE USER
+        // =====================================================
+
+        window.saveUserAccount =
+            async function () {
+
+                const uid =
+                    document.getElementById(
+                        "usr-uid-hidden"
+                    ).value.trim();
+
+
+                const facilityId =
+                    activeFacilityId ||
+                    document.getElementById(
+                        "fac-id-hidden"
+                    ).value.trim();
+
+
+                if (
+                    !facilityId ||
+                    facilityId === "master"
+                ) {
+
+                    alert(
+                        "Select a facility before creating or updating a facility user."
+                    );
+
+                    return;
+                }
+
+
+                const email =
+                    document.getElementById(
+                        "usr-email"
+                    ).value.trim();
+
+
+                const name =
+                    document.getElementById(
+                        "usr-name"
+                    ).value.trim();
+
+
+                const password =
+                    document.getElementById(
+                        "usr-password"
+                    ).value;
+
+
+                const permission =
+                    document.getElementById(
+                        "usr-permission"
+                    ).value;
+
+
+                if (!email || !name) {
+
+                    alert(
+                        "Full Name and Email Address are required."
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    ![
+                        "Viewer",
+                        "Editor",
+                        "Admin"
+                    ].includes(
+                        permission
+                    )
+                ) {
+
+                    alert(
+                        "Invalid permission clearance."
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    !uid &&
+                    password.length < 6
+                ) {
+
+                    alert(
+                        "A new user password must be at least 6 characters."
+                    );
+
+                    return;
+                }
+
+
+                const payload = {
+
+                    uid:
+                        uid,
+
+                    old_email:
+                        document.getElementById(
+                            "usr-old-email-hidden"
+                        ).value.trim(),
+
+                    new_email:
+                        email,
+
+                    email:
+                        email,
+
+                    name:
+                        name,
+
+                    password:
+                        password,
+
+                    position:
+                        document.getElementById(
+                            "usr-position"
+                        ).value.trim(),
+
+                    permission:
+                        permission,
+
+                    facility_id:
+                        facilityId
+                };
+
+
+                const endpoint =
+                    uid
+                        ? "/api/update-user"
+                        : "/api/provision-user";
+
+
+                try {
+
+                    const response =
+                        await superAdminFetch(
+                            endpoint,
+                            {
+                                method:
+                                    "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body:
+                                    JSON.stringify(
+                                        payload
+                                    )
+                            }
+                        );
+
+
+                    const data =
+                        await readJsonResponse(
+                            response,
+                            "User operation failed."
+                        );
+
+
+                    if (!data.success) {
+
+                        throw new Error(
+                            data.error ||
+                            "User operation failed."
+                        );
+                    }
+
+
+                    alert(
+                        data.message ||
+                        "User account saved successfully."
+                    );
+
+
+                    clearUserForm();
+
+
+                    await loadUsersList(
+                        facilityId
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ User operation error:",
+                        error
+                    );
+
+
+                    alert(
+                        error.message
+                    );
+                }
+            };
+
+
+        // =====================================================
+        // RESET USER PASSWORD
+        // =====================================================
+
+        window.resetUserPassword =
+            async function (
+                uid
+            ) {
+
+                if (
+                    !uid
+                ) {
+
+                    return;
+                }
+
+
+                const newPassword =
+                    prompt(
+                        "Enter the new password for this staff member (minimum 6 characters):"
+                    );
+
+
+                if (
+                    newPassword === null
+                ) {
+
+                    return;
+                }
+
+
+                if (
+                    newPassword.length < 6
+                ) {
+
+                    alert(
+                        "Password must be at least 6 characters."
+                    );
+
+                    return;
+                }
+
+
+                try {
+
+                    const response =
+                        await superAdminFetch(
+                            "/api/reset-user-password",
+                            {
+                                method:
+                                    "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body:
+                                    JSON.stringify({
+                                        uid:
+                                            uid,
+
+                                        new_password:
+                                            newPassword
+                                    })
+                            }
+                        );
+
+
+                    const data =
+                        await readJsonResponse(
+                            response,
+                            "Password reset failed."
+                        );
+
+
+                    if (!data.success) {
+
+                        throw new Error(
+                            data.error ||
+                            "Password reset failed."
+                        );
+                    }
+
+
+                    alert(
+                        data.message ||
+                        "Password reset successfully."
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Password reset error:",
+                        error
+                    );
+
+
+                    alert(
+                        error.message
+                    );
+                }
+            };
+
+
+        // =====================================================
+        // DELETE USER
+        // =====================================================
+
+        window.deleteUserAccount =
+            async function (
+                uid,
+                email
+            ) {
+
+                if (!uid) {
+
+                    return;
+                }
+
+
+                if (
+                    !confirm(
+                        `Are you sure you want to remove staff member [${email}]?`
+                    )
+                ) {
+
+                    return;
+                }
+
+
+                try {
+
+                    const response =
+                        await superAdminFetch(
+                            "/api/delete-user",
+                            {
+                                method:
+                                    "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body:
+                                    JSON.stringify({
+                                        uid:
+                                            uid,
+
+                                        email:
+                                            email
+                                    })
+                            }
+                        );
+
+
+                    const data =
+                        await readJsonResponse(
+                            response,
+                            "User deletion failed."
+                        );
+
+
+                    if (!data.success) {
+
+                        throw new Error(
+                            data.error ||
+                            "User deletion failed."
+                        );
+                    }
+
+
+                    alert(
+                        data.message ||
+                        "User removed successfully."
+                    );
+
+
+                    if (
+                        activeFacilityId
+                    ) {
+
+                        await loadUsersList(
+                            activeFacilityId
+                        );
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Delete user error:",
+                        error
+                    );
+
+
+                    alert(
+                        error.message
+                    );
+                }
+            };
+
+
+        // =====================================================
+        // FATAL INITIALIZATION UI
+        // =====================================================
+
+        function showFatalInitializationError(
+            message
+        ) {
+
+            const facilitiesBody =
+                document.getElementById(
+                    "facilities-table-body"
+                );
+
+
+            const usersBody =
+                document.getElementById(
+                    "users-table-body"
+                );
+
+
+            if (facilitiesBody) {
+
+                facilitiesBody.innerHTML = `
+                    <tr>
+                        <td
+                            colspan="2"
+                            class="p-3 text-center text-rose-500 font-semibold"
+                        >
+                            SuperAdmin authentication failed.
+                        </td>
+                    </tr>
+                `;
+            }
+
+
+            if (usersBody) {
+
+                usersBody.innerHTML = `
+                    <tr>
+                        <td
+                            colspan="3"
+                            class="p-3 text-center text-rose-500 font-semibold"
+                        >
+                            Dashboard initialization failed.
+                        </td>
+                    </tr>
+                `;
+            }
+
+
+            alert(
+                "SuperAdmin authentication could not be established.\n\n" +
+                message
+            );
+        }
+
+
+        // =====================================================
+        // HTML ESCAPING
+        // =====================================================
+
+        function escapeHtml(
+            value
+        ) {
+
+            return String(
+                value ?? ""
+            )
+                .replace(
+                    /&/g,
+                    "&amp;"
+                )
+                .replace(
+                    /</g,
+                    "&lt;"
+                )
+                .replace(
+                    />/g,
+                    "&gt;"
+                )
+                .replace(
+                    /"/g,
+                    "&quot;"
+                )
+                .replace(
+                    /'/g,
+                    "&#039;"
+                );
+        }
+
+// =====================================================
+// SUPERADMIN LOGOUT
+// =====================================================
+
+async function logoutSuperAdmin() {
+
+    const button =
+        document.getElementById(
+            "btn-superadmin-logout"
+        );
+
+    try {
+
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = `
+                <i data-lucide="loader-circle" class="w-4 h-4 animate-spin"></i>
+                Logging Out...
+            `;
+            lucide.createIcons();
+        }
+
+        // -------------------------------------------------
+        // 1. Terminate Flask SuperAdmin session
+        // -------------------------------------------------
+
+        const response =
+            await fetch(
+                "/api/superadmin/logout",
+                {
+                    method: "POST",
+                    credentials: "same-origin",
+                    cache: "no-store"
+                }
+            );
+
+        let data = {};
+
+        try {
+            data = await response.json();
+        } catch (error) {
+            console.warn(
+                "SuperAdmin logout returned invalid JSON."
+            );
+        }
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Unable to terminate SuperAdmin server session."
+            );
+        }
+
+        // -------------------------------------------------
+        // 2. Sign out from Firebase Master Auth
+        // -------------------------------------------------
+
+        if (currentSuperAdmin) {
+
+            await signOut(
+                currentSuperAdmin.auth
+            );
+
+        }
+
+        // -------------------------------------------------
+        // 3. Clear local SuperAdmin state
+        // -------------------------------------------------
+
+        currentSuperAdmin = null;
+
+        superAdminCsrfToken = null;
+
+        cachedFacilities = [];
+
+        // -------------------------------------------------
+        // 4. Return to SuperAdmin login
+        // -------------------------------------------------
+
+        window.location.replace(
+            "/superadmin-login"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "❌ SUPERADMIN LOGOUT FAILED:",
+            error
+        );
+
+        if (button) {
+
+            button.disabled = false;
+
+            button.innerHTML = `
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+                Logout
+            `;
+
+            lucide.createIcons();
+        }
+
+        alert(
+            error.message ||
+            "SuperAdmin logout failed."
+        );
+    }
+}
+
+    </script>

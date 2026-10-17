@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en" class="h-screen overflow-hidden">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Dashboard - Multi-Tenant Control Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans h-screen flex flex-col overflow-hidden select-none">
+
+    <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-4 space-y-4">
+        
+        <!-- TOP STATUS / BANNER BAR -->
+        <header class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-extrabold text-slate-900 uppercase tracking-tight">Super Admin Orchestration Center</h1>
+                    <p class="text-xs text-slate-500 font-medium">Manage Multi-Tenant Facilities, Isolated Credentials, and System Staff Credentials</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <span id="active-tenant-badge" class="bg-teal-50 text-teal-700 border border-teal-200 px-3 py-1 rounded-md text-xs font-bold font-mono uppercase">
+                    Active Node: Master
+                </span>
+                <button type="button" onclick="clearFacilityForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-md font-bold text-xs uppercase transition flex items-center gap-1.5">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> New Facility Mode
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN 3-COLUMN WORKSPACE GRID -->
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0 overflow-hidden">
+            
+            <!-- LEFT COLUMN (4 COLS): FACILITY MANAGEMENT -->
+            <section class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+                <div class="flex items-center gap-2 border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+                    <i data-lucide="building-2" class="w-4 h-4 text-teal-600"></i>
+                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">1. Facility Profile Parameters</h2>
+                </div>
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
+                    <input type="hidden" id="fac-id-hidden">
+
+                    <div>
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Facility Name *</label>
+                        <input type="text" id="fac-name" placeholder="e.g. LAKAN Main Clinic Node" class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-semibold focus:outline-none focus:border-teal-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Contact Number</label>
+                            <input type="text" id="fac-contact" placeholder="0917-000-0000" class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-mono focus:outline-none focus:border-teal-500">
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Facility Email</label>
+                            <input type="email" id="fac-email" placeholder="facility@domain.gov.ph" class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs focus:outline-none focus:border-teal-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Operational Site Address</label>
+                        <textarea id="fac-address" rows="2" placeholder="Full physical clinic address details..." class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs focus:outline-none focus:border-teal-500 resize-none"></textarea>
+                    </div>
+
+                    <!-- REGISTERED FACILITIES LIST TABLE -->
+                    <div class="border-t border-slate-100 pt-3">
+                        <label class="text-[10px] uppercase font-bold text-slate-400 block mb-2">Registered Facility Nodes</label>
+                        <div class="border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 font-bold">
+                                    <tr>
+                                        <th class="py-2 px-3">Facility Name</th>
+                                        <th class="py-2 px-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="facilities-table-body" class="divide-y divide-slate-100">
+                                    <tr><td colspan="2" class="p-3 text-center text-slate-400 italic">Loading facility registry...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CENTER COLUMN (4 COLS): INFRASTRUCTURE CREDENTIALS BINDING -->
+            <section class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+                <div class="flex items-center gap-2 border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+                    <i data-lucide="key-round" class="w-4 h-4 text-indigo-600"></i>
+                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">2. Infrastructure Credentials</h2>
+                </div>
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0 flex flex-col">
+                    <div>
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Google Apps Script Webhook URL</label>
+                        <input type="url" id="fac-webhook" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-mono focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div class="flex-1 flex flex-col">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Firebase Config JSON / JS Object</label>
+                            <button type="button" onclick="formatFirebaseConfigInput()" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold uppercase">Format JSON</button>
+                        </div>
+                        <textarea id="fac-firebase-json" placeholder='{\n  "apiKey": "AIzaSy...",\n  "authDomain": "tenant.firebaseapp.com",\n  "projectId": "tenant-project-id",\n  "storageBucket": "tenant.appspot.com",\n  "messagingSenderId": "000000000000",\n  "appId": "1:0000000:web:0000"\n}' class="w-full flex-1 bg-slate-900 text-teal-400 border border-slate-700 rounded p-2 text-[11px] font-mono focus:outline-none focus:border-teal-400 resize-none min-h-[180px]"></textarea>
+                    </div>
+
+                    <div class="pt-2 flex justify-end gap-2 border-t border-slate-100 flex-shrink-0">
+                        <button type="button" onclick="deleteFacilityNode()" id="btn-delete-fac" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-md font-bold text-xs uppercase transition hidden">
+                            Delete Node
+                        </button>
+                        <button type="button" onclick="saveFacilityNode()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-bold text-xs uppercase shadow-sm transition flex items-center gap-1.5">
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i> Save Facility Parameters
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT COLUMN (4 COLS): USER PROVISIONING & ROLES PERMISSIONS -->
+            <section class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4 text-teal-600"></i>
+                        <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">3. Users, Roles & Permissions</h2>
+                    </div>
+                    <span id="user-fac-target-label" class="text-[9px] font-mono text-slate-400 font-bold uppercase">Bound: Master</span>
+                </div>
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
+                    <!-- USER FORM -->
+                    <form id="user-provision-form" onsubmit="event.preventDefault(); saveUserAccount();" class="space-y-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <input type="hidden" id="usr-uid-hidden">
+                        <input type="hidden" id="usr-old-email-hidden">
+
+                        <div>
+                            <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">Full Name *</label>
+                            <input type="text" id="usr-name" required placeholder="Dr. Jane Doe" class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">Email Address *</label>
+                                <input type="email" id="usr-email" required placeholder="staff@facility.gov.ph" class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                            </div>
+                            <div>
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">Password *</label>
+                                <input type="password" id="usr-password" placeholder="••••••••" class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">Position / Role</label>
+                                <input type="text" id="usr-position" placeholder="Clinical Physician" class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                            </div>
+                            <div>
+                                <label class="text-[9px] uppercase font-bold text-slate-500 block mb-0.5">Permission Clearance</label>
+                                <select id="usr-permission" class="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500 font-bold text-slate-700">
+                                    <option value="Editor">Editor (Full Edit Access)</option>
+                                    <option value="Viewer">Viewer (Read-Only Access)</option>
+                                    <option value="Admin">Admin (Facility Administrator)</option>
+                                    <option value="SuperAdmin">SuperAdmin (Master Control)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pt-1 flex justify-end gap-1.5">
+                            <button type="button" onclick="clearUserForm()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded text-[11px] font-bold uppercase transition">Reset</button>
+                            <button type="submit" id="btn-save-user" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-[11px] font-bold uppercase shadow-sm transition flex items-center gap-1">
+                                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Save User
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- STAFF USER TABLE -->
+                    <div class="border border-slate-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 font-bold">
+                                <tr>
+                                    <th class="py-2 px-2.5">Staff User</th>
+                                    <th class="py-2 px-2.5">Clearance</th>
+                                    <th class="py-2 px-2.5 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body" class="divide-y divide-slate-100">
+                                <tr><td colspan="3" class="p-3 text-center text-slate-400 italic">Select a facility to load user registry...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- JS CONTROLLER WORKSPACE -->
+    <script>
+        let cachedFacilities = [];
+        let cachedUsers = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadFacilitiesList();
+            loadUsersList();
+        });
+
+        // ==========================================
+        // 1. FACILITY MANAGEMENT CONTROLLERS
+        // ==========================================
+        async function loadFacilitiesList() {
+            try {
+                const res = await fetch('/api/facilities');
+                const data = await res.json();
+                
+                if (!data.success) return;
+                cachedFacilities = data.facilities || [];
+                
+                const tbody = document.getElementById('facilities-table-body');
+                tbody.innerHTML = '';
+
+                if (cachedFacilities.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="2" class="p-3 text-center text-slate-400 italic">No facility nodes registered yet.</td></tr>`;
+                    return;
+                }
+
+                cachedFacilities.forEach(f => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition cursor-pointer";
+                    tr.innerHTML = `
+                        <td class="py-2 px-3 font-bold text-slate-800" onclick="selectFacilityNode('${f.id}')">${f.facility_name}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" onclick="selectFacilityNode('${f.id}')" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold">Manage</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Error loading facilities:", err);
+            }
+        }
+
+        function selectFacilityNode(facilityId) {
+            const facility = cachedFacilities.find(f => f.id === facilityId);
+            if (!facility) return;
+
+            document.getElementById('fac-id-hidden').value = facility.id;
+            document.getElementById('fac-name').value = facility.facility_name || '';
+            document.getElementById('fac-contact').value = facility.contact_number || '';
+            document.getElementById('fac-email').value = facility.email || '';
+            document.getElementById('fac-address').value = facility.address || '';
+            document.getElementById('fac-webhook').value = facility.gas_webhook_url || '';
+            document.getElementById('fac-firebase-json').value = JSON.stringify(facility.firebase_config || {}, null, 2);
+
+            document.getElementById('active-tenant-badge').innerText = `Active Node: ${facility.facility_name}`;
+            document.getElementById('user-fac-target-label').innerText = `Bound: ${facility.id}`;
+            document.getElementById('btn-delete-fac').classList.remove('hidden');
+
+            // Switch session & load mapped users
+            fetch('/api/select-facility', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ facility_id: facility.id })
+            });
+
+            loadUsersList(facility.id);
+        }
+
+        function clearFacilityForm() {
+            document.getElementById('fac-id-hidden').value = '';
+            document.getElementById('fac-name').value = '';
+            document.getElementById('fac-contact').value = '';
+            document.getElementById('fac-email').value = '';
+            document.getElementById('fac-address').value = '';
+            document.getElementById('fac-webhook').value = '';
+            document.getElementById('fac-firebase-json').value = '';
+
+            document.getElementById('active-tenant-badge').innerText = 'Active Node: Master / New';
+            document.getElementById('btn-delete-fac').classList.add('hidden');
+        }
+
+        function formatFirebaseConfigInput() {
+            const raw = document.getElementById('fac-firebase-json').value;
+            try {
+                const parsed = JSON.parse(raw);
+                document.getElementById('fac-firebase-json').value = JSON.stringify(parsed, null, 2);
+            } catch (e) {
+                alert("Invalid JSON format. Please format correctly.");
+            }
+        }
+
+        async function saveFacilityNode() {
+            const facilityId = document.getElementById('fac-id-hidden').value;
+            const facilityName = document.getElementById('fac-name').value.trim();
+            
+            if (!facilityName) {
+                alert("Facility Name is required.");
+                return;
+            }
+
+            let firebaseConfig = {};
+            const rawJson = document.getElementById('fac-firebase-json').value.trim();
+            if (rawJson) {
+                try {
+                    firebaseConfig = JSON.parse(rawJson);
+                } catch (e) {
+                    alert("Invalid JSON inside Firebase Config text area.");
+                    return;
+                }
+            }
+
+            const payload = {
+                facility_name: facilityName,
+                contact_number: document.getElementById('fac-contact').value.trim(),
+                email: document.getElementById('fac-email').value.trim(),
+                address: document.getElementById('fac-address').value.trim(),
+                gas_webhook_url: document.getElementById('fac-webhook').value.trim(),
+                firebase_config: firebaseConfig
+            };
+
+            const endpoint = facilityId ? `/api/facilities/${facilityId}/update` : '/api/facilities';
+            
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || "Facility details saved successfully.");
+                clearFacilityForm();
+                loadFacilitiesList();
+            } else {
+                alert("Error: " + data.error);
+            }
+        }
+
+        async function deleteFacilityNode() {
+            const facilityId = document.getElementById('fac-id-hidden').value;
+            if (!facilityId) return;
+
+            if (!confirm(`Are you sure you want to delete facility node [${facilityId}]?`)) return;
+
+            const res = await fetch(`/api/facilities/${facilityId}/delete`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert("Facility removed successfully.");
+                clearFacilityForm();
+                loadFacilitiesList();
+            } else {
+                alert("Error: " + data.error);
+            }
+        }
+
+        // ==========================================
+        // 2. USER, ROLE & PERMISSION CONTROLLERS
+        // ==========================================
+        async function loadUsersList(facilityId = '') {
+            try {
+                const url = facilityId ? `/api/users?facility_id=${facilityId}` : '/api/users';
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!data.success) return;
+                cachedUsers = data.users || [];
+
+                const tbody = document.getElementById('users-table-body');
+                tbody.innerHTML = '';
+
+                if (cachedUsers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-slate-400 italic">No users found for this selection.</td></tr>`;
+                    return;
+                }
+
+                cachedUsers.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition";
+                    tr.innerHTML = `
+                        <td class="py-2 px-2.5">
+                            <div class="font-bold text-slate-800 text-xs">${u.lastNameFirstName || 'Unnamed'}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">${u.email}</div>
+                        </td>
+                        <td class="py-2 px-2.5">
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${u.clearancePermission === 'Admin' || u.clearancePermission === 'SuperAdmin' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-600'}">
+                                ${u.clearancePermission || 'Viewer'}
+                            </span>
+                        </td>
+                        <td class="py-2 px-2.5 text-center space-x-1">
+                            <button type="button" onclick="editUserAccount('${u.uid}')" class="text-[10px] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded font-bold text-slate-700">Edit</button>
+                            <button type="button" onclick="resetUserPassword('${u.uid}')" class="text-[10px] bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded font-bold text-amber-700">Reset</button>
+                            <button type="button" onclick="deleteUserAccount('${u.uid}', '${u.email}')" class="text-[10px] bg-rose-50 hover:bg-rose-100 px-1.5 py-0.5 rounded font-bold text-rose-600">Del</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Error loading users:", err);
+            }
+        }
+
+        function clearUserForm() {
+            document.getElementById('usr-uid-hidden').value = '';
+            document.getElementById('usr-old-email-hidden').value = '';
+            document.getElementById('usr-name').value = '';
+            document.getElementById('usr-email').value = '';
+            document.getElementById('usr-password').value = '';
+            document.getElementById('usr-position').value = '';
+            document.getElementById('usr-permission').value = 'Editor';
+            document.getElementById('btn-save-user').innerHTML = `<i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Save User`;
+            lucide.createIcons();
+        }
+
+        function editUserAccount(uid) {
+            const user = cachedUsers.find(u => u.uid === uid);
+            if (!user) return;
+
+            document.getElementById('usr-uid-hidden').value = user.uid;
+            document.getElementById('usr-old-email-hidden').value = user.email;
+            document.getElementById('usr-name').value = user.lastNameFirstName || '';
+            document.getElementById('usr-email').value = user.email || '';
+            document.getElementById('usr-position').value = user.positionRole || '';
+            document.getElementById('usr-permission').value = user.clearancePermission || 'Editor';
+
+            document.getElementById('btn-save-user').innerHTML = `<i data-lucide="save" class="w-3.5 h-3.5"></i> Update User`;
+            lucide.createIcons();
+        }
+
+        async function saveUserAccount() {
+            const uid = document.getElementById('usr-uid-hidden').value;
+            const activeFacilityId = document.getElementById('fac-id-hidden').value || 'master';
+
+            const payload = {
+                uid: uid,
+                old_email: document.getElementById('usr-old-email-hidden').value,
+                new_email: document.getElementById('usr-email').value.trim(),
+                email: document.getElementById('usr-email').value.trim(),
+                name: document.getElementById('usr-name').value.trim(),
+                password: document.getElementById('usr-password').value,
+                position: document.getElementById('usr-position').value.trim(),
+                permission: document.getElementById('usr-permission').value,
+                facility_id: activeFacilityId
+            };
+
+            const endpoint = uid ? '/api/update-user' : '/api/provision-user';
+
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || "User account saved successfully.");
+                clearUserForm();
+                loadUsersList(activeFacilityId);
+            } else {
+                alert("User Operation Error: " + data.error);
+            }
+        }
+
+        async function resetUserPassword(uid) {
+            const newPassword = prompt("Enter new password for staff member (min 6 characters):");
+            if (!newPassword || newPassword.length < 6) {
+                alert("Password must be at least 6 characters.");
+                return;
+            }
+
+            const res = await fetch('/api/reset-user-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: uid, new_password: newPassword })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert("Password reset successfully.");
+            } else {
+                alert("Error: " + data.error);
+            }
+        }
+
+        async function deleteUserAccount(uid, email) {
+            if (!confirm(`Are you sure you want to remove staff member [${email}]?`)) return;
+
+            const res = await fetch('/api/delete-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: uid, email: email })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert("User removed successfully.");
+                const activeFacilityId = document.getElementById('fac-id-hidden').value || '';
+                loadUsersList(activeFacilityId);
+            } else {
+                alert("Error: " + data.error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en" class="h-screen overflow-hidden">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrEP Client Registry Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        .toggle-checkbox:checked { right: 0; border-color: #0d9488; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #0d9488; }
+        .toggle-checkbox { right: 1.25rem; transition: all 0.3s; border: 2px solid #e2e8f0; }
+        .toggle-label { transition: background-color 0.3s; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden select-none">
+
+    {% include 'navbar.html' ignore missing %}
+
+    <main class="flex-1 flex min-h-0 overflow-hidden">
+        
+        <section class="flex-1 flex flex-col p-6 overflow-y-auto h-full">
+            
+            <div class="bg-white border border-slate-200 rounded-xl p-4 mb-4 gap-4 shadow-sm flex flex-col flex-shrink-0">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-2 mb-1">
+                    <span id="facility-db-title" class="text-xs font-black uppercase text-teal-700 tracking-wider font-mono">
+                        Node PrEP Registry Database
+                    </span>
+                    <span id="user-role-badge" class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                        Clearance: Active
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" id="table-search" placeholder="Search by Name, UIC, or Client Code..." class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                    </div>
+
+                    <div>
+                        <select id="filter-dosage" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                            <option value="">All PrEP Dosage Types</option>
+                            <option value="Daily Dose">Daily Dose</option>
+                            <option value="Event Driven">Event Driven</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <select id="filter-status" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                            <option value="">All PrEP Statuses</option>
+                            <option value="Active">Active</option>
+                            <option value="Due">Due</option>
+                            <option value="LTFU">LTFU</option>
+                            <option value="Indeterminate">Indeterminate</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 w-full border-t border-slate-100 pt-3 text-xs font-semibold text-slate-500">
+                    <span class="text-[10px] uppercase font-black tracking-wider text-slate-400">Enrollment Bounds:</span>
+                    <div class="flex items-center gap-2">
+                        <input type="date" id="filter-date-start" class="bg-slate-50 border border-slate-300 rounded-md px-2 py-1 font-mono text-[11px] text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                        <span>to</span>
+                        <input type="date" id="filter-date-end" class="bg-slate-50 border border-slate-300 rounded-md px-2 py-1 font-mono text-[11px] text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                    </div>
+                    
+                    <div class="ml-auto flex items-center gap-3 flex-shrink-0">
+                        <span class="text-xs text-slate-500 font-mono bg-slate-100 border border-slate-200 px-2 py-1 rounded">Records Found: <span id="record-count">0</span></span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="btn-import-record" onclick="window.location.href='/prep-upload'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-md shadow-sm transition flex items-center gap-1.5">
+                                <i data-lucide="file-up" class="w-4 h-4"></i> Import Record
+                            </button>
+                            <button type="button" id="btn-add-record" class="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-md shadow-sm transition flex items-center gap-1.5">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Record
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex-shrink-0">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold text-[10px]">
+                            <th class="py-3 px-4">OHASIS</th>
+                            <th class="py-3 px-4">Enrolment Date</th>
+                            <th class="py-3 px-4">Client Code</th>
+                            <th class="py-3 px-4">UIC</th>
+                            <th class="py-3 px-4">Full Name</th>
+                            <th class="py-3 px-4">PrEP Intended Dosage</th>
+                            <th class="py-3 px-4">Regimen</th>
+                            <th class="py-3 px-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="master-table-body" class="divide-y divide-slate-100">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- FULLSCREEN MODAL -->
+    <div id="client-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-0">
+        <div class="bg-white w-full h-full rounded-none shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative">
+            
+            <div id="saving-overlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center text-white space-y-4">
+                <div class="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
+                <div class="text-center">
+                    <h3 class="text-lg font-bold">Data is being saved. Please do not exit.</h3>
+                    <p class="text-xs text-slate-300 mt-1">Synchronizing with cloud registry database...</p>
+                </div>
+            </div>
+
+            <header class="border-b border-slate-200 px-6 py-4 flex items-center justify-between bg-slate-50 flex-shrink-0">
+                <div>
+                    <span id="profile-card-badge" class="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded border border-slate-200 uppercase">PrEP Client Profile</span>
+                    <h2 id="view-header-uic" class="text-xl font-mono font-bold text-slate-900 mt-0.5 tracking-tight">-----</h2>
+                    <div id="view-serial-container" class="mt-0.5 flex items-center gap-1 text-[11px] font-mono text-slate-400 font-bold uppercase">
+                        <span>Client Code:</span>
+                        <span id="view-patient-code" class="text-indigo-600 font-black">---</span>
+                    </div>
+                </div>
+                <button type="button" onclick="window.closeClientModal()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </header>
+
+            <div id="detail-box-content" class="flex-1 overflow-y-auto p-6 scroll-smooth min-h-0 bg-slate-50">
+                <div id="data-state" class="h-full">
+                    
+                    <!-- READ-ONLY VIEW MODE -->
+                    <section id="wrapper-view" class="space-y-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                            <!-- Left Side: Demographics -->
+                            <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm lg:sticky lg:top-0 lg:self-start">
+                                <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px] mb-1">
+                                    <i data-lucide="user" class="w-3.5 h-3.5 text-teal-600"></i> I. Demographics
+                                </div>
+                                <div class="text-xs space-y-3">
+                                    <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Full Name</span><p id="view-name" class="font-bold text-slate-800 text-sm mt-0.5">---</p></div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Sex Assigned at Birth</span><p id="view-sex" class="text-slate-700 font-medium mt-0.5">---</p></div>
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Key Population (KP)</span><p id="view-kp" class="text-slate-700 font-medium mt-0.5">---</p></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Birthdate</span><p id="view-bday" class="text-slate-700 font-mono mt-0.5">---</p></div>
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Calculated Age</span><p id="view-age" class="text-slate-700 font-medium mt-0.5">---</p></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-2">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Contact Number</span><p id="view-contact" class="font-mono text-slate-800 font-medium mt-0.5">---</p></div>
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Email Address</span><p id="view-email" class="text-slate-800 font-medium mt-0.5">---</p></div>
+                                    </div>
+                                    <div class="border-t border-slate-200 pt-2">
+                                        <span class="text-slate-400 uppercase text-[10px] block font-bold">Complete Address</span>
+                                        <p id="view-address" class="text-slate-700 font-medium leading-relaxed mt-0.5">---</p>
+                                    </div>
+                                    <div class="border-t border-slate-200 pt-2">
+                                        <span class="text-slate-400 uppercase text-[10px] block font-bold">UIC</span>
+                                        <p id="view-uic" class="text-teal-600 font-mono font-bold mt-0.5">---</p>
+                                    </div>
+                                    <div class="border-t border-slate-100 pt-2"><span class="text-slate-400 uppercase text-[10px] block font-bold">OHASIS URL</span>
+                                        <p class="mt-0.5 truncate max-w-[400px]">
+                                            <a id="view-ohasis-url" href="#" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium font-mono underline break-all text-[11px]">---</a>
+                                        </p>
+                                    </div>
+                                    <div id="view-barcode-zone" class="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg inline-block w-fit hidden">
+                                        <div id="canvas-barcode-display" class="bg-white p-1 rounded border border-slate-100 flex justify-center items-center"></div>
+                                        <p class="text-[9px] font-mono text-center font-bold text-slate-400 mt-1 uppercase tracking-wider">OHASIS Record QR</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Side: Clinical Cards -->
+                            <div class="space-y-4">
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-teal-600"></i> II. PrEP Information
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Date Enrolled</span><p id="view-prep-date" class="text-slate-800 font-mono font-bold mt-0.5 text-sm">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">PrEP Status</span><p id="view-prep-status" class="text-teal-700 font-bold mt-0.5">---</p></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-2">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Intended Dosage</span><p id="view-prep-dosage" class="text-slate-800 font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">PrEP Regimen</span><p id="view-prep-regimen" class="text-indigo-600 font-bold mt-0.5">---</p></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="flask-conical" class="w-3.5 h-3.5 text-teal-600"></i> III. Laboratory
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">HIV T0 Test Date</span><p id="view-t0-date" class="text-slate-800 font-mono font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">HIV T0 Result</span><p id="view-t0-result" class="text-teal-700 font-bold mt-0.5">---</p></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-2">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Serum Creatinine</span><p id="view-serum-creatinine" class="text-slate-800 font-mono font-bold mt-0.5">--- mg/dL</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Creatinine Clearance (Ccr)</span><p id="view-creatinine-clearance" class="text-teal-700 font-mono font-bold mt-0.5">--- mL/min</p></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="stethoscope" class="w-3.5 h-3.5 text-teal-600"></i> IV. Clinical Assessment
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Weight</span><p id="view-weight" class="text-slate-800 font-bold mt-0.5">--- kg</p></div>
+                                        <div class="border-t border-slate-100 pt-2 space-y-2">
+                                            <span class="text-slate-400 uppercase text-[10px] block font-bold">STI Diagnoses</span>
+                                            <div id="view-sti-list" class="divide-y divide-slate-100">
+                                                <p class="text-slate-500 italic">None logged</p>
+                                            </div>
+                                        </div>
+                                        <div class="border-t border-slate-100 pt-2">
+                                            <span class="text-slate-400 uppercase text-[10px] block font-bold">Gender-Affirmative Hormone Therapy</span>
+                                            <p id="view-gaht" class="text-slate-800 font-medium mt-0.5">---</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="view-refill-card" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-teal-600"></i> V. PrEP Refill & Follow-up
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Last Dispense Date</span><p id="view-dispense-date" class="text-slate-800 font-mono font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Stock Remaining</span><p class="text-slate-800 font-bold mt-0.5"><span id="view-pills-remaining" class="text-teal-700">---</span> Pills</p></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-3">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Run-Out Target</span><p id="view-runout-date" class="text-rose-600 font-mono font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Est. Date Next Refill</span><p id="view-next-refill" class="text-slate-700 font-mono font-medium mt-0.5">---</p></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex justify-end">
+                            <button type="button" id="btn-edit" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md font-bold text-xs uppercase shadow-sm transition flex items-center gap-1.5">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit Record Settings
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- EDIT FORM SPLIT LAYOUT -->
+                    <form id="wrapper-edit" class="hidden h-full flex flex-col" onsubmit="event.preventDefault();">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 items-start">
+                            
+                            <!-- LEFT COLUMN: DEMOGRAPHICS (I) -->
+                            <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm lg:sticky lg:top-0 lg:self-start">
+                                <div class="space-y-4">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2 flex justify-between items-center">
+                                        I. Demographics
+                                        <span id="input-age-dynamic" class="text-[10px] text-teal-700 font-mono bg-teal-100 px-2 py-0.5 rounded">Age: --</span>
+                                    </h3>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-indigo-600 block">Client Code</label>
+                                            <input type="text" id="input-patient-code" placeholder="e.g., PREP-2026-0042" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono font-bold focus:border-indigo-500 focus:outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-teal-700 block">UIC</label>
+                                            <input type="text" id="input-uic" placeholder="e.g. ENJO0108161998" oninput="window.runAutomatedUicBirthdayExtractor(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono font-bold focus:border-teal-500 focus:outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Birthdate</label>
+                                            <input type="date" id="input-bday" oninput="window.handleBdayInput(this.value)" class="w-full bg-slate-100 border border-slate-300 rounded p-1.5 text-xs font-mono text-slate-700 focus:outline-none cursor-not-allowed" readonly>
+                                        </div>
+                                    </div>
+                                    <p class="text-[9px] text-slate-400 italic font-medium -mt-2">Birthdate autosets when UIC is exactly 14 characters long.</p>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Last Name</label><input type="text" id="input-lastname" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">First Name</label><input type="text" id="input-firstname" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Middle Name</label><input type="text" id="input-middlename" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Suffix</label><input type="text" id="input-suffix" placeholder="e.g. Jr, III" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Sex assigned at birth</label>
+                                            <select id="input-sex" onchange="window.calculateCcr()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-black tracking-wider text-slate-400 block mb-1">Key Population (KP)</label>
+                                            <div id="input-kp-multiselect-zone" class="grid grid-cols-2 gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700">
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="MSM" class="accent-teal-600 w-3.5 h-3.5"> MSM</label>
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="TGW" class="accent-teal-600 w-3.5 h-3.5"> TGW</label>
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="PWID" class="accent-teal-600 w-3.5 h-3.5"> PWID</label>
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="RSW" class="accent-teal-600 w-3.5 h-3.5"> RSW</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Contact Number</label><input type="tel" id="input-contact" placeholder="e.g., 09171234567" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Email Address</label><input type="email" id="input-email" placeholder="e.g., client@domain.com" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-slate-500 block">Complete Address</label>
+                                        <textarea id="input-address" rows="2" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none resize-none"></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-indigo-600 block">OHASIS URL Reference Link</label>
+                                        <input type="url" id="input-ohasis-url" placeholder="https://ohasis.doh.gov.ph/patient/..." class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono text-slate-800 focus:border-indigo-500 focus:outline-none">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT COLUMN: II. PrEP Info, III. Lab, IV. Clinical, V. Refill -->
+                            <div class="space-y-4">
+                                
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2">II. PrEP Information</h3>
+                                    
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Date Enrolled to PrEP</label>
+                                            <input type="date" id="input-prep-date" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:outline-none focus:border-teal-500">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">PrEP Status (Auto Calculated)</label>
+                                            <input type="text" id="input-prep-status" readonly value="Indeterminate" class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-bold text-teal-700 cursor-not-allowed focus:outline-none">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">PrEP Intended Dosage</label>
+                                            <select id="input-prep-dosage" onchange="window.handleDosageChange(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                                <option value="Daily Dose">Daily Dose</option>
+                                                <option value="Event Driven">Event Driven</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">PrEP Regimen</label>
+                                            <select id="input-prep-regimen" onchange="window.toggleRegimenOtherField(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                                <option value="FTC/TDF">FTC/TDF</option>
+                                                <option value="LEN">LEN</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div id="cond-regimen-other" class="hidden">
+                                        <label class="text-[10px] uppercase font-bold text-indigo-600 block">Specify Regimen</label>
+                                        <input type="text" id="input-prep-regimen-other" placeholder="Please specify regimen..." class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-indigo-500 focus:outline-none">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2">III. Laboratory</h3>
+                                    
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">HIV T0 Test Date</label>
+                                            <input type="date" id="input-t0-date" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">HIV T0 Result</label>
+                                            <select id="input-t0-result" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                                <option value="Nonreactive">Nonreactive</option>
+                                                <option value="Reactive">Reactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3 grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Serum Creatinine (mg/dL)</label>
+                                            <input type="number" step="0.01" id="input-serum-creatinine" oninput="window.calculateCcr()" placeholder="e.g. 0.9" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-teal-700 block">Creatinine Clearance (Auto Calc)</label>
+                                            <input type="text" id="input-creatinine-clearance" readonly placeholder="Ccr (mL/min)" class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold text-teal-700 cursor-not-allowed">
+                                        </div>
+                                    </div>
+                                    <div class="bg-blue-50/70 border border-blue-100 rounded-md p-2.5 flex items-center gap-2 text-blue-700 text-[11px] font-medium">
+                                        <i data-lucide="info" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
+                                        <span>Ccr (mL/min) = [[(140 - age) x weight in kg] / [serum creatinine (mg/dL) x 72]] x (0.85 if female)</span>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2">IV. Clinical Assessment</h3>
+                                    
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-slate-500 block">Weight (in Kg)</label>
+                                        <input type="number" step="0.1" id="input-weight" oninput="window.calculateCcr()" placeholder="e.g. 65.5" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none">
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3 space-y-3">
+                                        <label class="text-[10px] uppercase font-bold text-slate-500 block">STI Diagnoses</label>
+                                        <div id="sti-container" class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                            <div id="sti-list" class="space-y-2"></div>
+                                            <button type="button" onclick="window.addSTIField()" class="w-full py-1.5 border-2 border-dashed border-slate-300 rounded text-slate-500 hover:border-teal-500 hover:text-teal-600 transition text-[10px] font-bold uppercase flex items-center justify-center gap-1">
+                                                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add STI entry
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3 space-y-2">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[10px] uppercase font-bold text-slate-500">On gender-affirmative hormone therapy?</span>
+                                            <div class="relative inline-block w-10 h-5 align-middle select-none">
+                                                <input type="checkbox" id="input-gaht-toggle" onchange="window.toggleGahtFields()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer outline-none"/>
+                                                <label for="input-gaht-toggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
+                                            </div>
+                                        </div>
+                                        <div id="cond-gaht" class="hidden">
+                                            <label class="text-[10px] uppercase font-bold text-teal-700 block">Specify Therapy Details</label>
+                                            <input type="text" id="input-gaht-specify" placeholder="e.g. Estrogen, Testosterone Blocker" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="edit-refill-card" class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2 flex justify-between items-center">
+                                        V. PrEP Refill & Follow-up
+                                        <span id="refill-status-badge" class="text-[10px] font-bold px-2 py-0.5 rounded uppercase">STATUS: --</span>
+                                    </h3>
+
+                                    <div id="refill-status-box" class="p-3 rounded-md text-xs font-medium border hidden">
+                                        <p id="refill-status-text"></p>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Date Dispensed</label>
+                                            <input type="date" id="input-dispense-date" onchange="window.calculateRefillDates()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:outline-none focus:border-teal-500">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block"># Pills Dispensed</label>
+                                            <input type="number" id="input-pills-dispensed" placeholder="e.g., 30, 90" oninput="window.calculateRefillDates()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">Remaining Pills</label>
+                                            <input type="text" id="input-pills-remaining" disabled class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold cursor-not-allowed">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Dispensed By</label>
+                                            <input type="text" id="input-dispensed-by" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">Run-Out Target</label>
+                                            <input type="text" id="input-runout-date" disabled class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold cursor-not-allowed">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">Est. Next Refill</label>
+                                            <input type="text" id="input-next-refill" disabled class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold cursor-not-allowed">
+                                        </div>
+                                    </div>
+
+                                    <div class="border border-slate-200 rounded-lg overflow-hidden mt-2">
+                                        <button type="button" onclick="document.getElementById('refill-history-body').classList.toggle('hidden')" class="w-full bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-200 text-[11px] font-bold uppercase text-slate-600 hover:bg-slate-100/70 transition">
+                                            <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-slate-500"></i> Refill History Log</span>
+                                            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                                        </button>
+                                        <div id="refill-history-body" class="hidden bg-white max-h-32 overflow-y-auto divide-y divide-slate-100">
+                                            <div id="refill-history-list" class="text-[11px] font-medium text-slate-600"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="pt-3 flex justify-end gap-2 border-t border-slate-200 mt-4 bg-white sticky bottom-0 py-2">
+                            <button type="button" onclick="window.closeClientModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-md font-bold text-xs uppercase transition">Cancel</button>
+                            <button type="button" id="btn-save" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md font-bold text-xs uppercase shadow-sm transition flex items-center gap-1.5">
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i> Save Record
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="bg-slate-50 border-t border-slate-200 px-6 py-3 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest flex-shrink-0">
+                <span class="flex items-center gap-1.5"><i data-lucide="shield" class="w-3 h-3"></i> Encrypted Access</span>
+                <span>PrEP Registry Node 1.0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECURE SERVER-BROKERED PrEP DATA ACCESS -->
+    <script>
+        let prepCsrfToken = null;
+        let prepInitialized = false;
+
+        async function loadPrepCsrfToken() {
+            const response = await fetch('/api/prep/csrf-token', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success || !data.csrf_token) {
+                throw new Error(data.error || 'Unable to initialize security token.');
+            }
+            prepCsrfToken = data.csrf_token;
+            return prepCsrfToken;
+        }
+
+        async function securePrepFetch(url, options = {}) {
+            const method = String(options.method || 'GET').toUpperCase();
+            const headers = new Headers(options.headers || {});
+            headers.set('Accept', 'application/json');
+
+            if (method !== 'GET' && method !== 'HEAD') {
+                if (!prepCsrfToken) await loadPrepCsrfToken();
+                headers.set('X-CSRF-Token', prepCsrfToken);
+                headers.set('Content-Type', 'application/json');
+            }
+
+            const response = await fetch(url, {
+                ...options,
+                method,
+                headers,
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+
+            if (response.status === 401) {
+                window.location.href = '/login';
+                throw new Error('Authentication required.');
+            }
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || 'Secure PrEP operation failed.');
+            }
+            return data;
+        }
+
+        async function initializeSecurePrepNode() {
+            try {
+                const response = await fetch('/api/firebase-config', {
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+                const data = await response.json().catch(() => ({}));
+
+                if (response.ok && data.facility_name) {
+                    const titleLabel = document.getElementById('facility-db-title');
+                    if (titleLabel) {
+                        titleLabel.innerText = `${data.facility_name} • PrEP Client Registry Logs`;
+                    }
+                }
+
+                const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+                const roleBadge = document.getElementById('user-role-badge');
+                if (roleBadge) {
+                    roleBadge.innerText = `Clearance: ${clearance}`;
+                }
+
+                await loadPrepCsrfToken();
+                prepInitialized = true;
+
+                if (window.initializeLocalRegistryControllers) {
+                    window.initializeLocalRegistryControllers();
+                }
+            } catch (error) {
+                const tbody = document.getElementById('master-table-body');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-rose-600 font-semibold">Unable to initialize secure PrEP registry access.</td></tr>`;
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSecurePrepNode();
+        });
+    </script>
+
+    <script>
+        let currentClient = {};
+        let isNewRecordMode = false;
+        
+        let rawCachedRegistrySnapshot = [];
+        let rawCachedDemographicsSnapshot = [];
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function safeHttpUrl(value) {
+            try {
+                const url = new URL(String(value || '').trim());
+                return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : '';
+            } catch {
+                return '';
+            }
+        }
+
+        function addSTIField(name = '', date = '') {
+            const list = document.getElementById('sti-list');
+            if (!list) return;
+            const rowId = 'sti-' + Date.now() + Math.random().toString(36).substr(2, 5);
+            const div = document.createElement('div');
+            div.id = rowId;
+            div.className = "flex gap-2 items-end bg-white p-2 rounded border border-slate-200";
+            
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            const isViewer = clearance === 'Viewer';
+
+            div.innerHTML = `
+                <div class="flex-1">
+                    <label class="text-[9px] uppercase font-bold text-slate-400">Name of STI</label>
+                    <input type="text" value="${escapeHtml(name)}" ${isViewer ? 'disabled' : ''} placeholder="e.g. Syphilis, Gonorrhea" class="w-full border border-slate-200 rounded p-1 text-[11px] focus:outline-none focus:border-teal-500">
+                </div>
+                <div class="w-32">
+                    <label class="text-[9px] uppercase font-bold text-slate-400">Diagnosis Date</label>
+                    <input type="date" value="${escapeHtml(date)}" ${isViewer ? 'disabled' : ''} class="w-full border border-slate-200 rounded p-1 text-[11px] font-mono focus:outline-none focus:border-teal-500">
+                </div>
+                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-rose-400 hover:text-rose-600 p-1 mb-0.5 ${isViewer ? 'hidden' : ''}">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            `;
+            list.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function calculateCcr() {
+            const bdayVal = document.getElementById('input-bday')?.value;
+            const weightVal = parseFloat(document.getElementById('input-weight')?.value);
+            const scrVal = parseFloat(document.getElementById('input-serum-creatinine')?.value);
+            const sexVal = document.getElementById('input-sex')?.value;
+            const ccrOutput = document.getElementById('input-creatinine-clearance');
+
+            if (!ccrOutput) return;
+
+            let age = calculateAge(bdayVal);
+
+            if (age !== null && age >= 0 && !isNaN(weightVal) && weightVal > 0 && !isNaN(scrVal) && scrVal > 0) {
+                let ccr = ((140 - age) * weightVal) / (scrVal * 72);
+                if (sexVal === 'Female') {
+                    ccr *= 0.85;
+                }
+                ccrOutput.value = ccr.toFixed(2);
+            } else {
+                ccrOutput.value = '';
+            }
+        }
+
+        function handleDosageChange(dosageVal) {
+            const editRefillCard = document.getElementById('edit-refill-card');
+            const viewRefillCard = document.getElementById('view-refill-card');
+            const prepStatusInput = document.getElementById('input-prep-status');
+
+            if (dosageVal === 'Daily Dose') {
+                if (editRefillCard) editRefillCard.classList.remove('hidden');
+                if (viewRefillCard) viewRefillCard.classList.remove('hidden');
+                calculateRefillDates();
+            } else {
+                if (editRefillCard) editRefillCard.classList.add('hidden');
+                if (viewRefillCard) viewRefillCard.classList.add('hidden');
+                if (prepStatusInput) prepStatusInput.value = 'Indeterminate';
+            }
+        }
+
+        function calculateRefillDates() {
+            const dosageVal = document.getElementById('input-prep-dosage')?.value;
+            const prepStatusInput = document.getElementById('input-prep-status');
+
+            if (dosageVal === 'Event Driven') {
+                if (prepStatusInput) prepStatusInput.value = 'Indeterminate';
+                return;
+            }
+
+            const dispenseDateVal = document.getElementById('input-dispense-date')?.value;
+            const incomingPills = parseInt(document.getElementById('input-pills-dispensed')?.value) || 0;
+            const currentDispenser = document.getElementById('input-dispensed-by')?.value.trim();
+            
+            const runoutField = document.getElementById('input-runout-date');
+            const nextRefillField = document.getElementById('input-next-refill');
+            const remainingField = document.getElementById('input-pills-remaining');
+
+            const viewDispense = document.getElementById('view-dispense-date');
+            const viewRemaining = document.getElementById('view-pills-remaining');
+            const viewRunout = document.getElementById('view-runout-date');
+            const viewNextRefill = document.getElementById('view-next-refill');
+
+            let fullTimeline = Array.isArray(currentClient.refillLogs) ? [...currentClient.refillLogs] : [];
+
+            if (dispenseDateVal && incomingPills > 0) {
+                const isDuplicate = fullTimeline.some(log => log.date === dispenseDateVal && log.pills === incomingPills);
+                if (!isDuplicate) {
+                    fullTimeline.push({
+                        date: dispenseDateVal,
+                        pills: incomingPills,
+                        by: currentDispenser || 'Unspecified staff'
+                    });
+                }
+            }
+
+            if (fullTimeline.length === 0) {
+                if (remainingField) remainingField.value = "0";
+                if (viewRemaining) viewRemaining.innerText = "0";
+                if (runoutField) runoutField.value = "---"; 
+                if (nextRefillField) nextRefillField.value = "---";
+                updateRetentionStatusBox(0);
+                return;
+            }
+
+            fullTimeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            let rollingBalance = 0;
+            let timelinePointerDate = null;
+
+            fullTimeline.forEach((log) => {
+                const entryDate = new Date(log.date);
+                entryDate.setHours(0,0,0,0);
+
+                if (timelinePointerDate === null) {
+                    rollingBalance = log.pills;
+                    timelinePointerDate = entryDate;
+                } else {
+                    const msPassedBetween = entryDate.getTime() - timelinePointerDate.getTime();
+                    const daysPassedBetween = Math.max(0, Math.floor(msPassedBetween / (1000 * 60 * 60 * 24)));
+                    rollingBalance = Math.max(0, rollingBalance - daysPassedBetween) + log.pills;
+                    timelinePointerDate = entryDate;
+                }
+            });
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            
+            if (timelinePointerDate) {
+                const msSinceLastRefill = today.getTime() - timelinePointerDate.getTime();
+                const daysSinceLastRefill = Math.max(0, Math.floor(msSinceLastRefill / (1000 * 60 * 60 * 24)));
+                rollingBalance = Math.max(-999, rollingBalance - daysSinceLastRefill);
+            }
+
+            if (remainingField) remainingField.value = rollingBalance;
+
+            const runoutDate = new Date(today);
+            runoutDate.setDate(runoutDate.getDate() + rollingBalance);
+            
+            const runoutStr = runoutDate.toISOString().split('T')[0];
+            if (runoutField) runoutField.value = runoutStr;
+
+            const nextRefillDate = new Date(runoutDate);
+            nextRefillDate.setDate(nextRefillDate.getDate() - 7);
+            const nextRefillStr = nextRefillDate.toISOString().split('T')[0];
+            if (nextRefillField) nextRefillField.value = nextRefillStr;
+
+            if (viewDispense) viewDispense.innerText = dispenseDateVal || (fullTimeline[fullTimeline.length - 1]?.date || '---');
+            if (viewRemaining) viewRemaining.innerText = rollingBalance;
+            if (viewRunout) viewRunout.innerText = runoutStr;
+            if (viewNextRefill) viewNextRefill.innerText = nextRefillStr;
+
+            updateRetentionStatusBox(rollingBalance);
+        }
+
+        function updateRetentionStatusBox(remainingPills) {
+            const badge = document.getElementById('refill-status-badge');
+            const box = document.getElementById('refill-status-box');
+            const txt = document.getElementById('refill-status-text');
+            const prepStatusInput = document.getElementById('input-prep-status');
+            const viewPrepStatus = document.getElementById('view-prep-status');
+
+            if (!badge || !box || !txt) return;
+            box.classList.remove('hidden');
+
+            let computedStatus = 'Indeterminate';
+
+            if (remainingPills >= 1) {
+                computedStatus = 'Active';
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-emerald-50 text-emerald-700 border border-emerald-200";
+                badge.innerText = "STATUS: ACTIVE";
+                box.className = "p-3 rounded-md text-xs font-medium border bg-emerald-50/40 border-emerald-200 text-emerald-800";
+                txt.innerText = `🟢 ACTIVE: Client currently maintains a valid remaining medication cache (${remainingPills} pills left).`;
+            } else {
+                const daysOverdue = Math.abs(remainingPills);
+
+                if (daysOverdue > 30) {
+                    computedStatus = 'LTFU';
+                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-rose-50 text-rose-700 border border-rose-200";
+                    badge.innerText = "STATUS: LTFU";
+                    box.className = "p-3 rounded-md text-xs font-medium border bg-rose-50/40 border-rose-200 text-rose-800";
+                    txt.innerText = `🚨 LOST TO FOLLOW UP (LTFU): Critical alert. Client medication depletion exceeds the 30-day post run-out window threshold (${daysOverdue} days unmedicated).`;
+                } else {
+                    computedStatus = 'Due';
+                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-amber-50 text-amber-700 border border-amber-200";
+                    badge.innerText = "STATUS: DUE";
+                    box.className = "p-3 rounded-md text-xs font-medium border bg-amber-50/40 border-amber-200 text-amber-800";
+                    txt.innerText = `⚠️ DUE FOR REFILL: Medication levels are fully depleted, but client remains bounded within the 30-day grace period threshold (${daysOverdue} days overdue).`;
+                }
+            }
+
+            if (prepStatusInput) prepStatusInput.value = computedStatus;
+            if (viewPrepStatus) viewPrepStatus.innerText = computedStatus;
+        }
+
+        function renderRefillHistoryList(historyArray) {
+            const listElement = document.getElementById('refill-history-list');
+            if (!listElement) return;
+            listElement.innerHTML = '';
+            if (!historyArray || historyArray.length === 0) {
+                listElement.innerHTML = `<div class="p-3 text-slate-400 italic text-center">No structural logs found inside this node.</div>`; 
+                return;
+            }
+            historyArray.forEach(item => {
+                const row = document.createElement('div'); 
+                row.className = "flex justify-between items-center p-2.5 hover:bg-slate-50 transition border-b border-slate-100 last:border-0";
+                row.innerHTML = `
+                    <span class="font-mono font-semibold text-slate-700">${escapeHtml(item.date)}</span>
+                    <span class="bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-100">+ ${escapeHtml(item.pills)} Pills</span>
+                    <span class="text-slate-500 text-[10px]"><i class="inline w-3 h-3 text-slate-400"></i> ${escapeHtml(item.by)}</span>
+                `;
+                listElement.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function toggleRegimenOtherField(val) {
+            const otherDiv = document.getElementById('cond-regimen-other');
+            if (otherDiv) {
+                otherDiv.classList.toggle('hidden', val !== 'Others');
+            }
+        }
+
+        function toggleGahtFields() {
+            const isChecked = document.getElementById('input-gaht-toggle').checked;
+            const gahtDiv = document.getElementById('cond-gaht');
+            if (gahtDiv) {
+                gahtDiv.classList.toggle('hidden', !isChecked);
+            }
+        }
+
+        function runAutomatedUicBirthdayExtractor(uicStringValue) {
+            const sanitizedValue = uicStringValue.trim();
+            if (sanitizedValue.length !== 14) return;
+            
+            const dateExtractionSubstring = sanitizedValue.slice(-8);
+            if (!/^\d{8}$/.test(dateExtractionSubstring)) return; 
+            
+            const extractedMonthStr = dateExtractionSubstring.substring(0, 2);
+            const extractedDayStr = dateExtractionSubstring.substring(2, 4);
+            const extractedYearStr = dateExtractionSubstring.substring(4, 8);
+            
+            const constructedIsoDateString = `${extractedYearStr}-${extractedMonthStr}-${extractedDayStr}`;
+            
+            const testDateInstance = new Date(constructedIsoDateString);
+            if (isNaN(testDateInstance.getTime())) return; 
+            
+            const birthdayInputNode = document.getElementById('input-bday');
+            if (birthdayInputNode) {
+                birthdayInputNode.value = constructedIsoDateString;
+                handleBdayInput(constructedIsoDateString); 
+            }
+        }
+
+        function windowInitKPMultiSelectPayload(kpJoinedString) {
+            const zone = document.getElementById('input-kp-multiselect-zone');
+            if (!zone) return;
+            const checkboxes = zone.querySelectorAll('input[type="checkbox"]');
+            const tokenArrays = kpJoinedString ? kpJoinedString.split(',').map(s => s.trim()) : [];
+            
+            checkboxes.forEach(box => {
+                box.checked = tokenArrays.includes(box.value);
+            });
+        }
+
+        function extractKPMultiselectJoinedString() {
+            const zone = document.getElementById('input-kp-multiselect-zone');
+            if (!zone) return 'Specify';
+            const checkedValues = Array.from(zone.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+            return checkedValues.length > 0 ? checkedValues.join(', ') : 'Specify';
+        }
+
+        window.initializeLocalRegistryControllers = function() {
+            lucide.createIcons();
+            
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            if (clearance === 'Viewer') {
+                const addRecordBtn = document.getElementById('btn-add-record');
+                if (addRecordBtn) addRecordBtn.style.display = 'none';
+            }
+
+            initRealtimeRegistryListener();
+            bindFormActionHandlers();
+        };
+
+        function calculateAge(birthdate) {
+            if (!birthdate) return null;
+            const birth = new Date(birthdate);
+            if (isNaN(birth.getTime())) return null;
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age >= 0 ? age : 0;
+        }
+
+        function handleBdayInput(val) {
+            const calculated = calculateAge(val);
+            document.getElementById('input-age-dynamic').innerText = calculated !== null ? `Age: ${calculated}` : 'Age: --';
+            calculateCcr();
+        }
+
+        function openClientModal(uic, mode = 'view') {
+            const modal = document.getElementById('client-modal');
+            if (!modal) return;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            if (uic) {
+                fetchClientDocument(uic, mode);
+            } else {
+                showDetails('', {}, true);
+                toggleEditMode(true);
+            }
+        }
+
+        function closeClientModal() {
+            const modal = document.getElementById('client-modal');
+            if (modal) {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+        }
+
+        function toggleEditMode(isEditing) {
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            if (clearance === 'Viewer' && isEditing) {
+                alert("Insufficient permissions!");
+                return;
+            }
+            document.getElementById('wrapper-view').classList.toggle('hidden', isEditing);
+            document.getElementById('wrapper-edit').classList.toggle('hidden', !isEditing);
+            document.getElementById('btn-edit').classList.toggle('hidden', isEditing);
+        }
+
+        async function initRealtimeRegistryListener() {
+            if (!prepInitialized) return;
+
+            try {
+                const data = await securePrepFetch('/api/prep/registry');
+
+                rawCachedRegistrySnapshot = (data.records || []).map(record => ({
+                    ...(record.registry || {}),
+                    id: record.uic || record.id || ''
+                }));
+
+                rawCachedDemographicsSnapshot = (data.records || []).map(record => ({
+                    ...(record.demographics || {}),
+                    id: record.uic || record.id || ''
+                }));
+
+                applyActiveRegistryFilters();
+            } catch (error) {
+                const tbody = document.getElementById('master-table-body');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-rose-600 font-semibold">Unable to load secure PrEP registry.</td></tr>`;
+                }
+            }
+        }
+
+        function applyActiveRegistryFilters() {
+            const tbody = document.getElementById('master-table-body');
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            
+            const searchVal = document.getElementById('table-search').value.trim().toUpperCase();
+            const filterDosage = document.getElementById('filter-dosage').value;
+            const filterStatus = document.getElementById('filter-status').value;
+            const filterStart = document.getElementById('filter-date-start').value;
+            const filterDateEnd = document.getElementById('filter-date-end').value;
+
+            tbody.innerHTML = '';
+            
+            const filteredRecords = rawCachedRegistrySnapshot.filter(data => {
+                const uic = data.id || '';
+                const demoData = rawCachedDemographicsSnapshot.find(d => d.id === uic) || {};
+
+                if (searchVal) {
+                    const clientCode = (data.generated_serial_code || '').toUpperCase();
+                    const firstName = (demoData.firstName || '').toUpperCase();
+                    const lastName = (demoData.lastName || '').toUpperCase();
+                    const middleName = (demoData.middleName || '').toUpperCase();
+                    const fullName = `${firstName} ${middleName} ${lastName}`.trim();
+
+                    const matchesUic = uic.includes(searchVal);
+                    const matchesClientCode = clientCode.includes(searchVal);
+                    const matchesName = fullName.includes(searchVal);
+
+                    if (!matchesUic && !matchesClientCode && !matchesName) {
+                        return false;
+                    }
+                }
+
+                if (filterDosage && data.prepDosage !== filterDosage) return false;
+                if (filterStatus && data.prepStatus !== filterStatus) return false;
+                
+                if (data.prepEnrollmentDate && data.prepEnrollmentDate !== '---') {
+                    if (filterStart && data.prepEnrollmentDate < filterStart) return false;
+                    if (filterDateEnd && data.prepEnrollmentDate > filterDateEnd) return false;
+                } else if (filterStart || filterDateEnd) {
+                    return false;
+                }
+                return true;
+            });
+
+            document.getElementById('record-count').innerText = filteredRecords.length;
+
+            if (filteredRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400 italic">No operational PrEP records matching active filters.</td></tr>`;
+                return;
+            }
+
+            filteredRecords.forEach((registryData) => {
+                const uic = registryData.id;
+                const demoData = rawCachedDemographicsSnapshot.find(d => d.id === uic) || {};
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition-colors group";
+
+                let ohasisHtmlValueToken = '<span class="text-slate-300 italic">---</span>';
+                const resolvedUrlString = safeHttpUrl(demoData.ohasisUrl || registryData.ohasisUrl || '');
+
+                if (resolvedUrlString) {
+                    ohasisHtmlValueToken = `<a href="${escapeHtml(resolvedUrlString)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-extrabold hover:underline flex items-center gap-1"><i data-lucide="link" class="w-3 h-3"></i> OHASIS</a>`;
+                }
+
+                const resolvedLastName = demoData.lastName || '';
+                const resolvedFirstName = demoData.firstName || '';
+                const fullNameDisplayToken = (resolvedLastName || resolvedFirstName)
+                    ? `${resolvedFirstName} ${resolvedLastName}`.trim()
+                    : '---';
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-4 font-mono">${ohasisHtmlValueToken}</td>
+                    <td class="py-2.5 px-4 font-mono text-slate-600">${escapeHtml(registryData.prepEnrollmentDate || '---')}</td>
+                    <td class="py-2.5 px-4 font-mono font-bold text-slate-700">${escapeHtml(registryData.generated_serial_code || '---')}</td>
+                    <td class="py-2.5 px-4 font-mono font-bold text-teal-600">${escapeHtml(uic)}</td>
+                    <td class="py-2.5 px-4 font-semibold text-slate-800">${escapeHtml(fullNameDisplayToken)}</td>
+                    <td class="py-2.5 px-4 font-medium text-slate-700">${escapeHtml(registryData.prepDosage || '---')}</td>
+                    <td class="py-2.5 px-4 font-mono font-bold text-indigo-600">${escapeHtml(registryData.prepRegimen || '---')}</td>
+                    <td class="py-2.5 px-4 text-center space-x-1">
+                        <button type="button" data-uic="${escapeHtml(uic)}" data-action="view" class="prep-record-view text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-2 py-1 rounded transition">View</button>
+                        <button type="button" data-uic="${escapeHtml(uic)}" data-action="edit" class="prep-record-edit text-xs bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-2 py-1 rounded transition ${clearance === 'Viewer' ? 'hidden' : ''}">Edit</button>
+                        <button type="button" data-uic="${escapeHtml(uic)}" data-action="delete" class="prep-record-delete text-xs bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 px-2 py-1 rounded transition">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        async function fetchClientDocument(uic, mode) {
+            try {
+                const data = await securePrepFetch(`/api/prep/client/${encodeURIComponent(uic)}`);
+                const merged = {
+                    ...(data.demographics || {}),
+                    ...(data.registry || {}),
+                    uic: data.uic || uic
+                };
+
+                showDetails(uic, merged, false);
+
+                if (mode === 'edit') {
+                    toggleEditMode(true);
+                } else {
+                    toggleEditMode(false);
+                }
+            } catch (error) {
+                alert(error.message || 'Unable to load the PrEP client record.');
+            }
+        }
+
+        function showDetails(uic, data, isNewRecord = false) {
+            isNewRecordMode = isNewRecord;
+
+            currentClient = data;
+            currentClient.uic = uic;
+
+            const badgeEl = document.getElementById('profile-card-badge');
+            const viewSerialEl = document.getElementById('view-patient-code');
+
+            if(isNewRecord) {
+                if (badgeEl) {
+                    badgeEl.innerText = "New Record Creation";
+                    badgeEl.className = "text-[10px] bg-teal-100 text-teal-700 font-bold px-1.5 py-0.5 rounded border border-teal-200 uppercase";
+                }
+                document.getElementById('view-header-uic').innerText = "NEW REGISTRY ENTRY";
+                document.getElementById('input-patient-code').value = '';
+                if (viewSerialEl) viewSerialEl.innerText = "Awaiting manual text assignment...";
+            } else {
+                if (badgeEl) {
+                    badgeEl.innerText = "PrEP Client Profile";
+                    badgeEl.className = "text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded border border-slate-200 uppercase";
+                }
+                document.getElementById('view-header-uic').innerText = uic;
+                document.getElementById('input-patient-code').value = data.generated_serial_code || '';
+
+                if (viewSerialEl) {
+                    viewSerialEl.innerText = data.generated_serial_code || '---';
+                }
+            }
+
+            // I. Demographics View Binding
+            if(document.getElementById('view-uic')) document.getElementById('view-uic').innerText = uic || '---';
+            const mInitial = data.middleName ? ` ${data.middleName.charAt(0)}.` : '';
+            const sfx = data.suffix ? `, ${data.suffix}` : '';
+            if(document.getElementById('view-name')) document.getElementById('view-name').innerText = data.lastName ? `${data.lastName}, ${data.firstName}${mInitial}${sfx}` : '---';
+            if(document.getElementById('view-sex')) document.getElementById('view-sex').innerText = data.sex || '---';
+            if(document.getElementById('view-kp')) document.getElementById('view-kp').innerText = data.kp || '---';
+            if(document.getElementById('view-bday')) document.getElementById('view-bday').innerText = data.bday || '---';
+            if(document.getElementById('view-age')) document.getElementById('view-age').innerText = data.bday ? `${calculateAge(data.bday)} yrs old` : '---';
+            if(document.getElementById('view-address')) document.getElementById('view-address').innerText = data.address || 'No address logged';
+            if(document.getElementById('view-contact')) document.getElementById('view-contact').innerText = data.contactNumber || '---';
+            if(document.getElementById('view-email')) document.getElementById('view-email').innerText = data.emailAddress || '---';
+
+            // II. PrEP Information View Binding
+            if(document.getElementById('view-prep-date')) document.getElementById('view-prep-date').innerText = data.prepDate || '---';
+            if(document.getElementById('view-prep-status')) document.getElementById('view-prep-status').innerText = data.prepStatus || '---';
+            if(document.getElementById('view-prep-dosage')) document.getElementById('view-prep-dosage').innerText = data.prepDosage || '---';
+            const finalRegimenText = data.prepRegimen === 'Others' ? (data.prepRegimenOther || 'Others') : (data.prepRegimen || '---');
+            if(document.getElementById('view-prep-regimen')) document.getElementById('view-prep-regimen').innerText = finalRegimenText;
+
+            // III. Laboratory View Binding
+            if(document.getElementById('view-t0-date')) document.getElementById('view-t0-date').innerText = data.t0Date || '---';
+            if(document.getElementById('view-t0-result')) document.getElementById('view-t0-result').innerText = data.t0Result || '---';
+            if(document.getElementById('view-serum-creatinine')) document.getElementById('view-serum-creatinine').innerText = data.serumCreatinine ? `${data.serumCreatinine} mg/dL` : '---';
+            if(document.getElementById('view-creatinine-clearance')) document.getElementById('view-creatinine-clearance').innerText = data.creatinineClearance ? `${data.creatinineClearance} mL/min` : '---';
+
+            // IV. Clinical Assessment View Binding
+            if(document.getElementById('view-weight')) document.getElementById('view-weight').innerText = data.weight ? `${data.weight} kg` : '---';
+            
+            const stiViewContainer = document.getElementById('view-sti-list');
+            if (stiViewContainer) {
+                stiViewContainer.innerHTML = '';
+                if (data.stiLogs && Array.isArray(data.stiLogs) && data.stiLogs.length > 0) {
+                    data.stiLogs.forEach(s => {
+                        const row = document.createElement('div');
+                        row.className = "py-1 flex justify-between items-center text-xs";
+                        row.innerHTML = `<span class="font-bold text-slate-700">${s.name || '---'}</span><span class="font-mono text-slate-500">${s.date || '---'}</span>`;
+                        stiViewContainer.appendChild(row);
+                    });
+                } else {
+                    stiViewContainer.innerHTML = `<p class="text-slate-500 italic py-1">None logged</p>`;
+                }
+            }
+
+            const gahtViewText = data.gahtToggle ? `Yes - ${data.gahtSpecify || 'Unspecified'}` : 'No';
+            if(document.getElementById('view-gaht')) document.getElementById('view-gaht').innerText = gahtViewText;
+
+            // Edit Inputs Assignment
+            document.getElementById('input-uic').value = isNewRecord ? '' : uic;
+            document.getElementById('input-lastname').value = data.lastName || '';
+            document.getElementById('input-firstname').value = data.firstName || '';
+            document.getElementById('input-middlename').value = data.middleName || '';
+            document.getElementById('input-suffix').value = data.suffix || '';
+            document.getElementById('input-sex').value = data.sex || 'Male';
+            
+            windowInitKPMultiSelectPayload(data.kp);
+
+            document.getElementById('input-bday').value = data.bday || '';
+            document.getElementById('input-contact').value = data.contactNumber || '';
+            document.getElementById('input-email').value = data.emailAddress || '';
+            document.getElementById('input-address').value = data.address || '';
+
+            document.getElementById('input-prep-date').value = data.prepDate || '';
+            document.getElementById('input-prep-dosage').value = data.prepDosage || 'Daily Dose';
+            document.getElementById('input-prep-status').value = data.prepStatus || 'Indeterminate';
+            document.getElementById('input-prep-regimen').value = data.prepRegimen || 'FTC/TDF';
+            document.getElementById('input-prep-regimen-other').value = data.prepRegimenOther || '';
+            toggleRegimenOtherField(data.prepRegimen || 'FTC/TDF');
+
+            document.getElementById('input-t0-date').value = data.t0Date || '';
+            document.getElementById('input-t0-result').value = data.t0Result || 'Nonreactive';
+            document.getElementById('input-serum-creatinine').value = data.serumCreatinine || '';
+            document.getElementById('input-creatinine-clearance').value = data.creatinineClearance || '';
+
+            document.getElementById('input-weight').value = data.weight || '';
+            
+            const stiListContainer = document.getElementById('sti-list');
+            if (stiListContainer) stiListContainer.innerHTML = '';
+            if (data.stiLogs && Array.isArray(data.stiLogs) && data.stiLogs.length > 0) {
+                data.stiLogs.forEach(sti => addSTIField(sti.name, sti.date));
+            } else {
+                addSTIField();
+            }
+
+            document.getElementById('input-gaht-toggle').checked = !!data.gahtToggle;
+            document.getElementById('input-gaht-specify').value = data.gahtSpecify || '';
+            toggleGahtFields();
+
+            const viewOhasisLink = document.getElementById('view-ohasis-url');
+            if (viewOhasisLink) {
+                if (data.ohasisUrl && data.ohasisUrl !== '---') {
+                    viewOhasisLink.innerText = data.ohasisUrl;
+                    viewOhasisLink.href = data.ohasisUrl;
+                    viewOhasisLink.classList.remove('text-slate-400', 'pointer-events-none');
+                } else {
+                    viewOhasisLink.innerText = "No OHASIS link mapped to node";
+                    viewOhasisLink.href = "#";
+                    viewOhasisLink.classList.add('text-slate-400', 'pointer-events-none');
+                }
+            }
+
+            document.getElementById('input-ohasis-url').value = data.ohasisUrl || '';
+
+            const displayBox = document.getElementById('canvas-barcode-display');
+            const qrContainer = document.getElementById('view-barcode-zone');
+            if (displayBox && qrContainer) {
+                displayBox.innerHTML = '';
+                if (!isNewRecord && data.ohasisUrl && data.ohasisUrl.trim() !== '' && data.ohasisUrl !== '---') {
+                    new QRCode(displayBox, { text: data.ohasisUrl.trim(), width: 100, height: 100 });
+                    qrContainer.classList.remove('hidden');
+                } else {
+                    qrContainer.classList.add('hidden');
+                }
+            }
+
+            const sortedRefills = Array.isArray(data.refillLogs) ? [...data.refillLogs].sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
+            renderRefillHistoryList(sortedRefills);
+
+            document.getElementById('input-dispense-date').value = data.dispenseDate || '';
+            document.getElementById('input-pills-dispensed').value = data.pillsDispensed || '';
+            document.getElementById('input-dispensed-by').value = data.dispensedBy || '';
+
+            runAutomatedUicBirthdayExtractor(uic);
+            calculateCcr();
+            handleDosageChange(data.prepDosage || 'Daily Dose');
+        }
+
+        function openAddRecordWorkspace() {
+            openClientModal('', 'edit');
+        }
+
+        function bindFormActionHandlers() {
+            const saveBtn = document.getElementById('btn-save');
+            if (saveBtn) saveBtn.addEventListener('click', saveClientData);
+
+            const addBtn = document.getElementById('btn-add-record');
+            if (addBtn) addBtn.addEventListener('click', openAddRecordWorkspace);
+
+            const editBtn = document.getElementById('btn-edit');
+            if (editBtn) editBtn.onclick = function() { toggleEditMode(true); };
+
+            document.getElementById('table-search').addEventListener('input', applyActiveRegistryFilters);
+            document.getElementById('filter-dosage').addEventListener('change', applyActiveRegistryFilters);
+            document.getElementById('filter-status').addEventListener('change', applyActiveRegistryFilters);
+            document.getElementById('filter-date-start').addEventListener('change', applyActiveRegistryFilters);
+            document.getElementById('filter-date-end').addEventListener('change', applyActiveRegistryFilters);
+
+            const tableBody = document.getElementById('master-table-body');
+            if (tableBody) {
+                tableBody.addEventListener('click', (event) => {
+                    const button = event.target.closest('button[data-uic][data-action]');
+                    if (!button) return;
+                    const uic = button.dataset.uic || '';
+                    const action = button.dataset.action;
+                    if (action === 'view') window.openClientModal(uic, 'view');
+                    if (action === 'edit') window.openClientModal(uic, 'edit');
+                    if (action === 'delete') window.deleteClientRecord(uic, button);
+
+                });
+            }
+        }
+
+        async function saveClientData() {
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            if (clearance === 'Viewer') {
+                alert("SECURITY ACCESS DENIED: Missing required modification permissions.");
+                return;
+            }
+
+            let uic = document.getElementById('input-uic').value.trim().toUpperCase();
+
+            if (!uic) {
+                alert("VALIDATION ERROR: Unique Identifier Code (UIC) field is required.");
+                return;
+            }
+
+            const overlay = document.getElementById('saving-overlay');
+            if (overlay) overlay.classList.remove('hidden');
+
+            const computedCode = document.getElementById('input-patient-code').value.trim() || '---';
+
+            const stiLogsBase = [];
+            document.querySelectorAll('#sti-list > div').forEach(node => {
+                const inputs = node.querySelectorAll('input');
+                if (inputs.length >= 2) {
+                    const name = inputs[0].value.trim();
+                    const date = inputs[1].value;
+                    if (name || date) {
+                        stiLogsBase.push({ name, date });
+                    }
+                }
+            });
+
+            const existingRefillLogs = Array.isArray(currentClient.refillLogs)
+                ? [...currentClient.refillLogs]
+                : [];
+
+            const currentDispenseDate = document.getElementById('input-dispense-date').value;
+            const currentPills = parseInt(document.getElementById('input-pills-dispensed').value) || 0;
+            const currentDispenser = document.getElementById('input-dispensed-by').value.trim();
+
+            const refillLogsBase = existingRefillLogs;
+            if (currentDispenseDate && currentPills > 0) {
+                const duplicateCheck = refillLogsBase.some(
+                    log => log.date === currentDispenseDate && Number(log.pills) === currentPills
+                );
+                if (!duplicateCheck) {
+                    refillLogsBase.push({
+                        date: currentDispenseDate,
+                        pills: currentPills,
+                        by: currentDispenser || 'Unspecified staff'
+                    });
+                }
+            }
+
+            const demographicPayload = {
+                lastName: document.getElementById('input-lastname').value,
+                firstName: document.getElementById('input-firstname').value,
+                middleName: document.getElementById('input-middlename').value,
+                suffix: document.getElementById('input-suffix').value,
+                sex: document.getElementById('input-sex').value,
+                kp: extractKPMultiselectJoinedString(),
+                bday: document.getElementById('input-bday').value,
+                contactNumber: document.getElementById('input-contact').value,
+                emailAddress: document.getElementById('input-email').value,
+                address: document.getElementById('input-address').value,
+                prepDate: document.getElementById('input-prep-date').value,
+                prepStatus: document.getElementById('input-prep-status').value,
+                prepDosage: document.getElementById('input-prep-dosage').value,
+                prepRegimen: document.getElementById('input-prep-regimen').value,
+                prepRegimenOther: document.getElementById('input-prep-regimen-other').value,
+                t0Date: document.getElementById('input-t0-date').value,
+                t0Result: document.getElementById('input-t0-result').value,
+                serumCreatinine: document.getElementById('input-serum-creatinine').value,
+                creatinineClearance: document.getElementById('input-creatinine-clearance').value,
+                weight: document.getElementById('input-weight').value,
+                stiLogs: stiLogsBase,
+                gahtToggle: document.getElementById('input-gaht-toggle').checked,
+                gahtSpecify: document.getElementById('input-gaht-specify').value,
+                dispenseDate: currentDispenseDate,
+                pillsDispensed: currentPills,
+                dispensedBy: currentDispenser,
+                refillLogs: refillLogsBase,
+                generated_serial_code: computedCode,
+                ohasisUrl: document.getElementById('input-ohasis-url').value.trim()
+            };
+
+            const registryPayload = {
+                prepEnrollmentDate: demographicPayload.prepDate || '---',
+                prepStatus: demographicPayload.prepStatus,
+                prepDosage: demographicPayload.prepDosage,
+                prepRegimen: demographicPayload.prepRegimen === 'Others'
+                    ? demographicPayload.prepRegimenOther
+                    : demographicPayload.prepRegimen,
+                pillsRemaining: parseInt(document.getElementById('input-pills-remaining').value) || 0,
+                nextRefillDate: document.getElementById('input-next-refill').value || '---',
+                generated_serial_code: computedCode
+            };
+
+            try {
+                await securePrepFetch('/api/prep/client', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        uic,
+                        demographics: demographicPayload,
+                        registry: registryPayload
+                    })
+                });
+
+                if (overlay) overlay.classList.add('hidden');
+                alert(`SUCCESS: Secure PrEP record written successfully for [${uic}].`);
+                closeClientModal();
+                await initRealtimeRegistryListener();
+            } catch (error) {
+                if (overlay) overlay.classList.add('hidden');
+                alert(error.message || "CRITICAL ERROR: Secure PrEP operation was denied.");
+            }
+        }
+
+async function deleteClientRecord(uic, clickedButton = null) {
+
+    const normalizedUic = String(uic || '')
+        .trim()
+        .toUpperCase();
+
+    console.log('[PREP DELETE] CLICKED', {
+        uic: normalizedUic,
+        button: clickedButton
+    });
+
+    if (!normalizedUic) {
+        alert('DELETE ERROR: Missing client UIC.');
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // SECURE TYPED CONFIRMATION
+    // ---------------------------------------------------------
+
+    const modalId = `prep-delete-modal-${Date.now()}`;
+
+    const modal = document.createElement('div');
+
+    modal.id = modalId;
+
+    modal.className =
+        'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] ' +
+        'flex items-center justify-center p-4';
+
+    modal.innerHTML = `
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl border border-slate-200 p-6">
+
+            <div class="flex items-start gap-3">
+
+                <div class="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                    <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-black text-slate-900 uppercase">
+                        Archive PrEP Client
+                    </h3>
+
+                    <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                        You are removing client
+                        <span class="font-mono font-bold text-rose-600">
+                            ${normalizedUic}
+                        </span>
+                        from the ACTIVE PrEP registry.
+                    </p>
+
+                    <p class="text-xs text-slate-500 mt-2">
+                        The complete historical record will be preserved
+                        in the PrEP archive.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="mt-5">
+
+                <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1.5">
+                    Type
+                    <span class="font-mono font-black text-slate-900">
+                        DELETE
+                    </span>
+                    to continue
+                </label>
+
+                <input
+                    id="${modalId}-input"
+                    type="text"
+                    autocomplete="off"
+                    class="w-full bg-slate-50 border border-slate-300 rounded-lg
+                           py-2 px-3 text-sm font-mono font-bold
+                           focus:outline-none focus:border-rose-500
+                           focus:bg-white text-center"
+                    placeholder="Type DELETE"
+                >
+
+            </div>
+
+            <div class="flex gap-2 mt-5">
+
+                <button
+                    type="button"
+                    id="${modalId}-cancel"
+                    class="flex-1 bg-slate-100 hover:bg-slate-200
+                           text-slate-700 py-2 rounded-lg
+                           font-bold text-xs uppercase"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="button"
+                    id="${modalId}-confirm"
+                    disabled
+                    class="flex-1 bg-rose-300 text-white py-2 rounded-lg
+                           font-bold text-xs uppercase cursor-not-allowed"
+                >
+                    Archive & Remove
+                </button>
+
+            </div>
+
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+
+    const input = document.getElementById(`${modalId}-input`);
+    const cancelButton = document.getElementById(`${modalId}-cancel`);
+    const confirmButton = document.getElementById(`${modalId}-confirm`);
+
+    const closeModal = () => {
+        modal.remove();
+    };
+
+    input.focus();
+
+    // ---------------------------------------------------------
+    // ENABLE CONFIRM BUTTON ONLY WHEN DELETE IS TYPED
+    // ---------------------------------------------------------
+
+    input.addEventListener('input', () => {
+
+        const value = String(input.value || '')
+            .trim()
+            .toUpperCase();
+
+        if (value === 'DELETE') {
+
+            confirmButton.disabled = false;
+
+            confirmButton.className =
+                'flex-1 bg-rose-600 hover:bg-rose-700 ' +
+                'text-white py-2 rounded-lg font-bold text-xs uppercase ' +
+                'cursor-pointer transition';
+
+        } else {
+
+            confirmButton.disabled = true;
+
+            confirmButton.className =
+                'flex-1 bg-rose-300 text-white py-2 rounded-lg ' +
+                'font-bold text-xs uppercase cursor-not-allowed';
+        }
+    });
+
+    cancelButton.addEventListener('click', closeModal);
+
+    // ---------------------------------------------------------
+    // CONFIRM
+    // ---------------------------------------------------------
+
+    confirmButton.addEventListener('click', async () => {
+
+        const value = String(input.value || '')
+            .trim()
+            .toUpperCase();
+
+        if (value !== 'DELETE') {
+            return;
+        }
+
+        console.log('[PREP DELETE] Confirmation accepted.');
+
+        confirmButton.disabled = true;
+        confirmButton.innerText = 'Processing...';
+
+        if (clickedButton) {
+            clickedButton.disabled = true;
+            clickedButton.innerText = 'Deleting...';
+            clickedButton.classList.add(
+                'opacity-50',
+                'cursor-not-allowed'
+            );
+        }
+
+        try {
+
+            // -------------------------------------------------
+            // GET CSRF TOKEN
+            // -------------------------------------------------
+
+            console.log('[PREP DELETE] Requesting CSRF token...');
+
+            const csrfResponse = await fetch(
+                '/api/prep/csrf-token',
+                {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+
+            const csrfText = await csrfResponse.text();
+
+            let csrfData = {};
+
+            try {
+                csrfData = JSON.parse(csrfText);
+            } catch {
+                throw new Error(
+                    `CSRF endpoint returned non-JSON (${csrfResponse.status}).`
+                );
+            }
+
+            console.log('[PREP DELETE] CSRF response:', {
+                status: csrfResponse.status,
+                success: csrfData.success
+            });
+
+            if (
+                !csrfResponse.ok ||
+                !csrfData.success ||
+                !csrfData.csrf_token
+            ) {
+                throw new Error(
+                    csrfData.error ||
+                    `Unable to obtain PrEP security token (${csrfResponse.status}).`
+                );
+            }
+
+            // -------------------------------------------------
+            // DELETE / ARCHIVE
+            // -------------------------------------------------
+
+            console.log(
+                '[PREP DELETE] Sending DELETE request:',
+                `/api/prep/client/${encodeURIComponent(normalizedUic)}`
+            );
+
+            const deleteResponse = await fetch(
+                `/api/prep/client/${encodeURIComponent(normalizedUic)}`,
+                {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-Token': csrfData.csrf_token
+                    }
+                }
+            );
+
+            const responseText = await deleteResponse.text();
+
+            let result = {};
+
+            try {
+                result = JSON.parse(responseText);
+            } catch {
+                throw new Error(
+                    `Delete endpoint returned non-JSON (${deleteResponse.status}): ` +
+                    responseText.slice(0, 500)
+                );
+            }
+
+            console.log('[PREP DELETE] SERVER RESPONSE:', {
+                status: deleteResponse.status,
+                response: result
+            });
+
+            if (!deleteResponse.ok) {
+                throw new Error(
+                    result.error ||
+                    `Server rejected deletion (${deleteResponse.status}).`
+                );
+            }
+
+            // -------------------------------------------------
+            // SUCCESS
+            // -------------------------------------------------
+
+            if (
+                result.deleted === true &&
+                result.archived === true
+            ) {
+
+                closeModal();
+
+                alert(
+                    `SUCCESS\n\n` +
+                    `PrEP client [${normalizedUic}] was archived ` +
+                    `and removed from the active registry.`
+                );
+
+                await initRealtimeRegistryListener();
+
+            } else if (
+                result.deleted === false &&
+                result.archived === false
+            ) {
+
+                closeModal();
+
+                alert(
+                    `NOTICE\n\n` +
+                    `No active PrEP record was found for [${normalizedUic}].`
+                );
+
+                await initRealtimeRegistryListener();
+
+            } else {
+
+                throw new Error(
+                    'Unexpected response from the PrEP deletion endpoint.'
+                );
+            }
+
+        } catch (error) {
+
+            console.error(
+                '[PREP DELETE FAILED]',
+                error
+            );
+
+            confirmButton.disabled = false;
+            confirmButton.innerText = 'Archive & Remove';
+
+            if (clickedButton) {
+                clickedButton.disabled = false;
+                clickedButton.innerText = 'Delete';
+                clickedButton.classList.remove(
+                    'opacity-50',
+                    'cursor-not-allowed'
+                );
+            }
+
+            alert(
+                `DELETE FAILED\n\n` +
+                `${error.message || 'Unknown server error.'}`
+            );
+        }
+
+    });
+
+}
+
+        window.addSTIField = addSTIField;
+        window.handleBdayInput = handleBdayInput;
+        window.toggleEditMode = toggleEditMode;
+        window.calculateCcr = calculateCcr;
+        window.handleDosageChange = handleDosageChange;
+        window.calculateRefillDates = calculateRefillDates;
+        window.toggleRegimenOtherField = toggleRegimenOtherField;
+        window.toggleGahtFields = toggleGahtFields;
+        window.initializeLocalRegistryControllers = initializeLocalRegistryControllers;
+        window.openClientModal = openClientModal;
+        window.closeClientModal = closeClientModal;
+        window.runAutomatedUicBirthdayExtractor = runAutomatedUicBirthdayExtractor;
+        window.deleteClientRecord = deleteClientRecord;
+    </script>
+    
+</body>
+</html>

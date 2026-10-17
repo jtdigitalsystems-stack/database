@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="en" class="h-screen overflow-hidden">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLHIV Client Registry Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        /* Custom Toggle Switch Style */
+        .toggle-checkbox:checked { right: 0; border-color: #0d9488; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #0d9488; }
+        .toggle-checkbox { right: 1.25rem; transition: all 0.3s; border: 2px solid #e2e8f0; }
+        .toggle-label { transition: background-color 0.3s; }
+        
+        /* Professional micro scrollbars for independent layouts */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden select-none">
+
+    {% include 'navbar.html' ignore missing %}
+
+    <main class="flex-1 flex min-h-0 overflow-hidden">
+        
+        <section class="flex-1 flex flex-col p-6 overflow-y-auto h-full">
+            
+            <div class="bg-white border border-slate-200 rounded-xl p-4 mb-4 gap-4 shadow-sm flex flex-col flex-shrink-0">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-2 mb-1">
+                    <span id="facility-db-title" class="text-xs font-black uppercase text-teal-700 tracking-wider font-mono">
+                        Node Registry Database
+                    </span>
+                    <span id="user-role-badge" class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                        Clearance: Active
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" id="table-search" placeholder="Search by Name, UIC, or Client Code..." class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                    </div>
+
+                    <div>
+                        <select id="filter-vl" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                            <option value="">All Viral Load Statuses</option>
+                            <option value="Suppressed">Suppressed</option>
+                            <option value="Not Suppressed">Not Suppressed</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <select id="filter-retention" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                            <option value="">All Retention Outcomes</option>
+                            <option value="Active">Active</option>
+                            <option value="LTFU">LTFU</option>
+                            <option value="Deceased">Deceased</option>
+                            <option value="Trans-out">Trans-out</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 w-full border-t border-slate-100 pt-3 text-xs font-semibold text-slate-500">
+                    <span class="text-[10px] uppercase font-black tracking-wider text-slate-400">ART Enrollment Bounds:</span>
+                    <div class="flex items-center gap-2">
+                        <input type="date" id="filter-date-start" class="bg-slate-50 border border-slate-300 rounded-md px-2 py-1 font-mono text-[11px] text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                        <span>to</span>
+                        <input type="date" id="filter-date-end" class="bg-slate-50 border border-slate-300 rounded-md px-2 py-1 font-mono text-[11px] text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
+                    </div>
+                    
+                    <div class="ml-auto flex items-center gap-3 flex-shrink-0">
+                        <span class="text-xs text-slate-500 font-mono bg-slate-100 border border-slate-200 px-2 py-1 rounded">Records Found: <span id="record-count">0</span></span>
+                        <button type="button" id="btn-add-record" class="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-md shadow-sm transition flex items-center gap-1.5">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Record
+                        </button>
+                        <button type="button" id="btn-import-record" onclick="window.location.href='/art-import'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-md shadow-sm transition flex items-center gap-1.5">
+                            <i data-lucide="file-up" class="w-4 h-4"></i> Import Record
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex-shrink-0">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold text-[10px]">
+                            <th class="py-3 px-4">OHASIS</th>
+                            <th class="py-3 px-4">Enrolment Date</th>
+                            <th class="py-3 px-4">Full Name</th>
+                            <th class="py-3 px-4">UIC</th>
+                            <th class="py-3 px-4">Client Code</th>
+                            <th class="py-3 px-4">VL Result</th>
+                            <th class="py-3 px-4">VL Status</th>
+                            <th class="py-3 px-4">CD4 Count</th>
+                            <th class="py-3 px-4">ART Status</th>
+                            <th class="py-3 px-4">Next Refill Date</th>
+                            <th class="py-3 px-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="master-table-body" class="divide-y divide-slate-100">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- FULLSCREEN MODAL -->
+    <div id="client-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-0">
+        <div class="bg-white w-full h-full rounded-none shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative">
+            
+            <!-- SAVING OVERLAY SCREEN -->
+            <div id="saving-overlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center text-white space-y-4">
+                <div class="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
+                <div class="text-center">
+                    <h3 class="text-lg font-bold">Data is being saved. Please do not exit.</h3>
+                    <p class="text-xs text-slate-300 mt-1">Synchronizing with cloud registry database...</p>
+                </div>
+            </div>
+
+            <header class="border-b border-slate-200 px-6 py-4 flex items-center justify-between bg-slate-50 flex-shrink-0">
+                <div>
+                    <span id="profile-card-badge" class="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded border border-slate-200 uppercase">Case Profile</span>
+                    <h2 id="view-header-uic" class="text-xl font-mono font-bold text-slate-900 mt-0.5 tracking-tight">-----</h2>
+                    <div id="view-serial-container" class="mt-0.5 flex items-center gap-1 text-[11px] font-mono text-slate-400 font-bold uppercase">
+                        <span>Client Code:</span>
+                        <span id="view-patient-code" class="text-indigo-600 font-black">---</span>
+                    </div>
+                </div>
+                <button type="button" onclick="window.closeClientModal()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </header>
+
+            <div id="detail-box-content" class="flex-1 overflow-y-auto p-6 scroll-smooth min-h-0 bg-slate-50">
+                <div id="data-state" class="h-full">
+                    
+                    <!-- READ-ONLY VIEW MODE -->
+                    <section id="wrapper-view" class="space-y-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                            <!-- Left Side: Demographics (Sticky) -->
+                            <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm lg:sticky lg:top-0 lg:self-start">
+                                <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px] mb-1">
+                                    <i data-lucide="user" class="w-3.5 h-3.5 text-teal-600"></i> I. Demographics
+                                </div>
+                                <div class="text-xs space-y-3">
+                                    <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Full Name</span><p id="view-name" class="font-bold text-slate-800 text-sm mt-0.5">---</p></div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Sex Assigned at Birth</span><p id="view-sex" class="text-slate-700 font-medium mt-0.5">---</p></div>
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Key Population (KP)</span><p id="view-kp" class="text-slate-700 font-medium mt-0.5">---</p></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Birthdate</span><p id="view-bday" class="text-slate-700 font-mono mt-0.5">---</p></div>
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Calculated Age</span><p id="view-age" class="text-slate-700 font-medium mt-0.5">---</p></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-2">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Contact Number</span><p id="view-contact" class="font-mono text-slate-800 font-medium mt-0.5">---</p></div>
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Email Address</span><p id="view-email" class="text-slate-800 font-medium mt-0.5">---</p></div>
+                                    </div>
+                                    <div class="border-t border-slate-200 pt-2">
+                                        <span class="text-slate-400 uppercase text-[10px] block font-bold">Complete Address</span>
+                                        <p id="view-address" class="text-slate-700 font-medium leading-relaxed mt-0.5">---</p>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-2">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">UIC</span><p id="view-uic" class="text-teal-600 font-mono font-bold mt-0.5">---</p></div>
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">PhilHealth ID Number</span><p id="view-philhealth" class="font-mono text-slate-800 font-bold mt-0.5">---</p></div>
+                                    </div>
+                                    <div class="border-t border-slate-100 pt-2"><span class="text-slate-400 uppercase text-[10px] block font-bold">OHASIS URL</span>
+                                        <p class="mt-0.5 truncate max-w-[400px]">
+                                            <a id="view-ohasis-url" href="#" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium font-mono underline break-all text-[11px]">---</a>
+                                        </p>
+                                    </div>
+                                    <div id="view-barcode-zone" class="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg inline-block w-fit hidden">
+                                        <div id="canvas-barcode-display" class="bg-white p-1 rounded border border-slate-100 flex justify-center items-center"></div>
+                                        <p class="text-[9px] font-mono text-center font-bold text-slate-400 mt-1 uppercase tracking-wider">OHASIS Record QR</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Side: Clinical Sections -->
+                            <div class="space-y-4">
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="activity" class="w-3.5 h-3.5 text-teal-600"></i> II. Diagnostic Information
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Client Inception</span><p id="view-inception" class="text-slate-800 font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">ART Outcome</span><p id="view-outcome" class="text-slate-800 font-bold mt-0.5">---</p></div>
+                                        </div>
+                                        <div class="border-t border-slate-200 pt-2">
+                                            <span class="text-slate-400 uppercase text-[10px] block font-bold tracking-wider">Laboratory Records</span>
+                                            <div class="grid grid-cols-2 gap-4 text-slate-700 mt-1">
+                                                <div>
+                                                    <span class="text-[9px] text-slate-400 uppercase font-semibold block">HIV T0 Test Date</span>
+                                                    <p class="font-medium mt-0.5"><span id="view-t0-date" class="font-mono text-slate-800">---</span> <span id="view-t0-result" class="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded ml-1 border border-rose-100">---</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="pill" class="w-3.5 h-3.5 text-teal-600"></i> III. ART Information
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Date Enrolled</span><p id="view-art-date" class="text-slate-800 font-mono font-bold mt-0.5 text-sm">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Turn Around Time (TOT)</span><p id="view-art-tot" class="text-teal-700 font-bold mt-0.5 bg-teal-50/60 border border-teal-100 px-2 py-0.5 rounded inline-block font-mono">---</p></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Regimen Type</span><p id="view-art-regimen" class="text-teal-700 font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Initiated By</span><p id="view-art-by" class="text-slate-700 font-medium mt-0.5">---</p></div>
+                                        </div>
+                                        <div class="border-t border-slate-200 pt-2 grid grid-cols-3 gap-2 text-center">
+                                            <div class="bg-slate-50 p-1 rounded border border-slate-100"><span class="text-[9px] text-slate-400 uppercase font-bold block">IPT Status</span><span id="view-ipt-status" class="font-bold text-[11px]">---</span></div>
+                                            <div class="bg-slate-50 p-1 rounded border border-slate-100"><span class="text-[9px] text-slate-400 uppercase font-bold block">CPT Status</span><span id="view-cpt-status" class="font-bold text-[11px]">---</span></div>
+                                            <div class="bg-slate-50 p-1 rounded border border-slate-100"><span class="text-[9px] text-slate-400 uppercase font-bold block">TB Status</span><span id="view-tb-status" class="text-[10px] truncate block">---</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="check-square" class="w-3.5 h-3.5 text-teal-600"></i> IV. Confirmatory, VL & CD4 Records
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Confirmatory Status</span><p class="mt-0.5"><span id="view-confirmatory-status" class="font-bold text-slate-800">---</span> <span id="view-confirmatory-details" class="text-slate-500 font-medium text-[11px] ml-1"></span></p></div>
+                                        <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-2.5">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Latest CD4 Count</span><p class="text-slate-800 font-medium mt-0.5"><span id="view-latest-cd4" class="font-bold text-teal-700">---</span> cells/µL</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Latest Viral Load</span><p class="text-slate-800 font-medium mt-0.5"><span id="view-latest-vl" class="font-bold text-rose-600">---</span> copies/mL</p></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-teal-600"></i> V. Refill Tracker View
+                                    </div>
+                                    <div class="text-xs space-y-3">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Last Dispense Date</span><p id="view-dispense-date" class="text-slate-800 font-mono font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Stock Remaining</span><p class="text-slate-800 font-bold mt-0.5"><span id="view-pills-remaining" class="text-teal-700">---</span> Pills</p></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-3">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Run-Out Target</span><p id="view-runout-date" class="text-rose-600 font-mono font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Est. Date Next Refill</span><p id="view-next-refill" class="text-slate-700 font-mono font-medium mt-0.5">---</p></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex justify-end">
+                            <button type="button" id="btn-edit" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md font-bold text-xs uppercase shadow-sm transition flex items-center gap-1.5">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit Record Settings
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- EDIT FORM SPLIT LAYOUT -->
+                    <form id="wrapper-edit" class="hidden h-full flex flex-col" onsubmit="event.preventDefault();">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 items-start">
+                            
+                            <!-- LEFT COLUMN: DEMOGRAPHICS (Sticky) -->
+                            <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm lg:sticky lg:top-0 lg:self-start">
+                                <div class="space-y-4">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2 flex justify-between items-center">
+                                        I. Demographics
+                                        <span id="input-age-dynamic" class="text-[10px] text-teal-700 font-mono bg-teal-100 px-2 py-0.5 rounded">Age: --</span>
+                                    </h3>
+
+                                    <!-- 1. Client Code, UIC, and Birthdate in 1 Row -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-indigo-600 block">Client Code</label>
+                                            <input type="text" id="input-patient-code" placeholder="e.g., LAKAN-2026-0042" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono font-bold focus:border-indigo-500 focus:outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-teal-700 block">UIC</label>
+                                            <input type="text" id="input-uic" placeholder="e.g. ENJO0108161998" oninput="window.runAutomatedUicBirthdayExtractor(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono font-bold focus:border-teal-500 focus:outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Birthdate</label>
+                                            <input type="date" id="input-bday" oninput="window.handleBdayInput(this.value)" class="w-full bg-slate-100 border border-slate-300 rounded p-1.5 text-xs font-mono text-slate-700 focus:outline-none cursor-not-allowed" readonly>
+                                        </div>
+                                    </div>
+                                    <p class="text-[9px] text-slate-400 italic font-medium -mt-2">Birthdate autosets when UIC is exactly 14 characters long.</p>
+
+                                    <!-- 2. All Name Fields in 1 Row -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Last Name</label><input type="text" id="input-lastname" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">First Name</label><input type="text" id="input-firstname" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Middle Name</label><input type="text" id="input-middlename" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Suffix</label><input type="text" id="input-suffix" placeholder="e.g. Jr, III" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                    </div>
+
+                                    <!-- 3. Sex Assigned at Birth and Key Population in 1 Row -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Sex assigned at birth</label>
+                                            <select id="input-sex" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-black tracking-wider text-slate-400 block mb-1">Key Population (KP)</label>
+                                            <div id="input-kp-multiselect-zone" class="grid grid-cols-2 gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700">
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="MSM" class="accent-teal-600 w-3.5 h-3.5"> MSM</label>
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="TGW" class="accent-teal-600 w-3.5 h-3.5"> TGW</label>
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="PWID" class="accent-teal-600 w-3.5 h-3.5"> PWID</label>
+                                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="RSW" class="accent-teal-600 w-3.5 h-3.5"> RSW</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contact and Email -->
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Contact Number</label><input type="tel" id="input-contact" placeholder="e.g., 09171234567" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none"></div>
+                                        <div><label class="text-[10px] uppercase font-bold text-slate-500 block">Email Address</label><input type="email" id="input-email" placeholder="e.g., client@domain.com" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none"></div>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-slate-500 block">Complete Address</label>
+                                        <textarea id="input-address" rows="2" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none resize-none"></textarea>
+                                    </div>
+
+                                    <!-- 4. PhilHealth and OHASIS Link in 1 Row -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">PhilHealth PIN</label>
+                                            <input type="text" id="input-philhealth" placeholder="e.g., 12-XXXXXXXXX-3" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-indigo-600 block">OHASIS URL Reference Link</label>
+                                            <input type="url" id="input-ohasis-url" placeholder="https://ohasis.doh.gov.ph/patient/..." class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono text-slate-800 focus:border-indigo-500 focus:outline-none">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT COLUMN: DIAGNOSTICS, ART, CONFIRMATORY, REFILL -->
+                            <div class="space-y-4">
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2">II. Diagnostic Information</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Client Inception</label>
+                                            <select id="input-inception" onchange="window.toggleConditionalFields()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                                <option value="OPD">OPD</option>
+                                                <option value="Trans-in">Trans-in</option>
+                                                <option value="Referred">Referred</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">ART Outcome</label>
+                                            <select id="input-outcome" onchange="window.toggleConditionalFields()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                                <option value="Active">Active</option>
+                                                <option value="LTFU">LTFU</option>
+                                                <option value="Deceased">Deceased</option>
+                                                <option value="Trans-out">Trans-out</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div id="cond-inception" class="hidden p-3 bg-teal-50/40 border border-teal-100 rounded-md grid grid-cols-2 gap-3">
+                                        <div><label id="lbl-inc-date" class="text-[10px] uppercase font-bold text-teal-700 block">Date</label><input type="date" id="input-inc-date" class="w-full bg-white border border-teal-200 rounded p-1.5 text-xs font-mono"></div>
+                                        <div><label id="lbl-inc-from" class="text-[10px] uppercase font-bold text-teal-700 block">Source</label><input type="text" id="input-inc-from" class="w-full bg-white border border-teal-200 rounded p-1.5 text-xs"></div>
+                                    </div>
+
+                                    <div id="cond-outcome" class="hidden p-3 bg-rose-50/40 border border-rose-100 rounded-md grid grid-cols-2 gap-3">
+                                        <div><label id="lbl-out-date" class="text-[10px] uppercase font-bold text-rose-700 block">Date</label><input type="date" id="input-out-date" class="w-full bg-white border border-rose-200 rounded p-1.5 text-xs font-mono"></div>
+                                        <div><label id="lbl-out-to" class="text-[10px] uppercase font-bold text-rose-700 block">Details</label><input type="text" id="input-out-to" class="w-full bg-white border border-rose-200 rounded p-1.5 text-xs"></div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div><label class="text-[10px] uppercase font-bold text-slate-500 block">HIV T0 Test Date</label><input type="date" id="input-t0-date" oninput="window.calculateTOT(this.value, document.getElementById('input-art-date').value)" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:outline-none"></div>
+                                            <div>
+                                                <label class="text-[10px] uppercase font-bold text-slate-500 block">T0 Result</label>
+                                                <select id="input-t0-result" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none">
+                                                    <option value="Reactive">Reactive</option>
+                                                    <option value="Nonreactive">Nonreactive</option>
+                                                    <option value="Indeterminate">Indeterminate</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="text-[10px] uppercase font-bold text-slate-500">History of OIs?</label>
+                                            <div class="relative inline-block w-10 h-5 align-middle select-none">
+                                                <input type="checkbox" id="input-oi-history" onchange="window.toggleOIContainer()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer outline-none"/>
+                                                <label for="input-oi-history" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
+                                            </div>
+                                        </div>
+                                        <div id="oi-container" class="hidden space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                            <div id="oi-list" class="space-y-2"></div>
+                                            <button type="button" onclick="window.addOIField()" class="w-full py-1.5 border-2 border-dashed border-slate-300 rounded text-slate-500 hover:border-teal-500 hover:text-teal-600 transition text-[10px] font-bold uppercase flex items-center justify-center gap-1">
+                                                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add OI entry
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2">III. ART Information</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Date Enrolled to ART</label>
+                                            <input type="date" id="input-art-date" oninput="window.calculateTOT(document.getElementById('input-t0-date').value, this.value)" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:outline-none focus:border-teal-500">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">Turn Around Time (TOT)</label>
+                                            <input type="text" id="input-art-tot" disabled value="SDART" class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold text-teal-700 cursor-not-allowed">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">REGIMEN: DRUG</label>
+                                            <select id="input-art-regimen" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                                                <option value="3TC/TDF/DTG">3TC/TDF/DTG (TLD)</option>
+                                                <option value="AZT/3TC+EFV">AZT/3TC+EFV</option>
+                                                <option value="TDF/3TC/EFV">TDF/3TC/EFV</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">ART Initiated By Staff</label>
+                                            <input type="text" id="input-art-by" placeholder="e.g., Dr. Jane Doe" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:border-teal-500">
+                                        </div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[10px] uppercase font-bold text-slate-500 block">IPT Prophylaxis</span>
+                                            <div class="relative inline-block w-10 h-5 align-middle select-none">
+                                                <input type="checkbox" id="input-ipt" onchange="window.toggleProphylaxisFields('ipt')" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer outline-none"/>
+                                                <label for="input-ipt" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
+                                            </div>
+                                        </div>
+                                        <div id="cond-ipt-dates" class="hidden grid grid-cols-2 gap-3 p-2 bg-slate-50 rounded border border-slate-200">
+                                            <div><label class="text-[9px] uppercase font-bold text-slate-500 block">Start Date</label><input type="date" id="input-ipt-start" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-mono"></div>
+                                            <div><label class="text-[9px] uppercase font-bold text-slate-500 block">Completed Date</label><input type="date" id="input-ipt-end" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-mono"></div>
+                                        </div>
+
+                                        <div class="flex items-center justify-between border-t border-slate-50 pt-2">
+                                            <span class="text-[10px] uppercase font-bold text-slate-500 block">CPT Prophylaxis</span>
+                                            <div class="relative inline-block w-10 h-5 align-middle select-none">
+                                                <input type="checkbox" id="input-cpt" onchange="window.toggleProphylaxisFields('cpt')" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer outline-none"/>
+                                                <label for="input-cpt" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
+                                            </div>
+                                        </div>
+                                        <div id="cond-cpt-dates" class="hidden grid grid-cols-2 gap-3 p-2 bg-slate-50 rounded border border-slate-200">
+                                            <div><label class="text-[9px] uppercase font-bold text-slate-500 block">Start Date</label><input type="date" id="input-cpt-start" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-mono"></div>
+                                            <div><label class="text-[9px] uppercase font-bold text-slate-500 block">Completed Date</label><input type="date" id="input-cpt-end" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-mono"></div>
+                                        </div>
+
+                                        <div class="border-t border-slate-100 pt-2">
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Tuberculosis (TB) Status</label>
+                                            <select id="input-tb-status" onchange="window.toggleTbFields()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500 mt-1">
+                                                <option value="No active TB">No active TB</option>
+                                                <option value="MTB">MTB</option>
+                                                <option value="Active TB">Active TB</option>
+                                                <option value="PTB (Pulmonary TB)">PTB (Pulmonary TB)</option>
+                                                <option value="Extra Pulmonary TB">Extra Pulmonary TB</option>
+                                            </select>
+                                        </div>
+                                        <div id="cond-tb-dates" class="hidden grid grid-cols-2 gap-3 p-2 bg-rose-50/40 border border-rose-100 rounded">
+                                            <div><label class="text-[9px] uppercase font-bold text-rose-700 block">TB Start</label><input type="date" id="input-tb-start" class="w-full bg-white border border-rose-200 rounded p-1 text-xs font-mono"></div>
+                                            <div><label class="text-[9px] uppercase font-bold text-rose-700 block">TB Completed</label><input type="date" id="input-tb-end" class="w-full bg-white border border-rose-200 rounded p-1 text-xs font-mono"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2">IV. Confirmatory, VL & CD4 Records</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="col-span-2">
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Confirmatory Status</label>
+                                            <select id="input-confirmatory-status" onchange="window.toggleConfirmatoryFields()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                                                <option value="Pending">Pending</option>
+                                                <option value="Done">Done</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="cond-confirmatory" class="hidden p-3 bg-teal-50/40 border border-teal-100 rounded-md space-y-3">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="text-[10px] uppercase font-bold text-teal-800 block">RHIVDA Result</label>
+                                                <select id="input-confirmatory-result" class="w-full bg-white border border-teal-200 rounded p-1.5 text-xs">
+                                                    <option value="Positive">Positive</option>
+                                                    <option value="Negative">Negative</option>
+                                                    <option value="Repeat">Repeat</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="text-[10px] uppercase font-bold text-teal-800 block">Confirmatory Date</label>
+                                                <input type="date" id="input-confirmatory-date" class="w-full bg-white border border-teal-200 rounded p-1.5 text-xs font-mono">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-teal-800 block">RHIVDA Code</label>
+                                            <input type="text" id="input-confirmatory-code" placeholder="e.g., RH-2026-XXXX" class="w-full bg-white border border-teal-200 rounded p-1.5 text-xs font-mono font-semibold">
+                                        </div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3 space-y-2">
+                                        <div class="flex justify-between items-center">
+                                            <label class="text-[10px] uppercase font-bold text-slate-500">CD4 Records</label>
+                                            <button type="button" onclick="window.addCD4Field()" class="text-teal-600 hover:text-teal-700 font-bold text-[10px] uppercase flex items-center gap-1 bg-teal-50 px-2 py-1 rounded border border-teal-200 transition">
+                                                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add CD4
+                                            </button>
+                                        </div>
+                                        <div id="cd4-entry-zone" class="space-y-2"></div>
+                                        <div class="bg-slate-50 rounded border border-slate-200 p-2 max-h-24 overflow-y-auto">
+                                            <span class="text-[9px] uppercase font-bold text-slate-400 block mb-1">CD4 Records</span>
+                                            <div id="cd4-history-log" class="text-[11px] divide-y divide-slate-100 font-mono text-slate-600"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3 space-y-2">
+                                        <div class="flex justify-between items-center">
+                                            <div class="flex items-center gap-2">
+                                                <label class="text-[10px] uppercase font-bold text-slate-500">Viral Load Assessments</label>
+                                                <span id="form-vl-status-badge" class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase bg-slate-100 text-slate-500 border border-slate-200">STATUS: --</span>
+                                            </div>
+                                            <button type="button" onclick="window.addVLField()" class="text-rose-600 hover:text-rose-700 font-bold text-[10px] uppercase flex items-center gap-1 bg-rose-50 px-2 py-1 rounded border border-rose-200 transition">
+                                                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add VL
+                                            </button>
+                                        </div>
+                                        <div id="vl-entry-zone" class="space-y-2"></div>
+                                        <div class="bg-slate-50 rounded border border-slate-200 p-2 max-h-24 overflow-y-auto">
+                                            <span class="text-[9px] uppercase font-bold text-slate-400 block mb-1">VL History Log</span>
+                                            <div id="vl-history-log" class="text-[11px] divide-y divide-slate-100 font-mono text-slate-600"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                    <h3 class="text-xs font-bold text-teal-600 uppercase border-b border-teal-50 pb-2 flex justify-between items-center">
+                                        V. ART Refill & Follow-up
+                                        <span id="refill-status-badge" class="text-[10px] font-bold px-2 py-0.5 rounded uppercase">STATUS: --</span>
+                                    </h3>
+
+                                    <div id="refill-status-box" class="p-3 rounded-md text-xs font-medium border hidden">
+                                        <p id="refill-status-text"></p>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Date Dispensed</label>
+                                            <input type="date" id="input-dispense-date" onchange="window.calculateRefillDates()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:outline-none focus:border-teal-500">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block"># Pills Dispensed</label>
+                                            <input type="number" id="input-pills-dispensed" placeholder="e.g., 30, 90" oninput="window.calculateRefillDates()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">Remaining Pills</label>
+                                            <input type="text" id="input-pills-remaining" disabled class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold cursor-not-allowed">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">Dispensed By</label>
+                                            <input type="text" id="input-dispensed-by" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:outline-none focus:border-teal-500">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">Run-Out Target</label>
+                                            <input type="text" id="input-runout-date" disabled class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold cursor-not-allowed">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] uppercase font-bold text-slate-400 block">Est. Next Refill</label>
+                                            <input type="text" id="input-next-refill" disabled class="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-xs font-mono font-bold cursor-not-allowed">
+                                        </div>
+                                    </div>
+
+                                    <div class="border border-slate-200 rounded-lg overflow-hidden mt-2">
+                                        <button type="button" onclick="document.getElementById('refill-history-body').classList.toggle('hidden')" class="w-full bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-200 text-[11px] font-bold uppercase text-slate-600 hover:bg-slate-100/70 transition">
+                                            <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-slate-500"></i> Refill History Log</span>
+                                            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                                        </button>
+                                        <div id="refill-history-body" class="hidden bg-white max-h-32 overflow-y-auto divide-y divide-slate-100">
+                                            <div id="refill-history-list" class="text-[11px] font-medium text-slate-600"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Standardized Compact Form Action Buttons -->
+                        <div class="pt-3 flex justify-end gap-2 border-t border-slate-200 mt-4 bg-white sticky bottom-0 py-2">
+                            <button type="button" onclick="window.closeClientModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-md font-bold text-xs uppercase transition">Cancel</button>
+                            <button type="button" id="btn-save" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md font-bold text-xs uppercase shadow-sm transition flex items-center gap-1.5">
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i> Save Record
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="bg-slate-50 border-t border-slate-200 px-6 py-3 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest flex-shrink-0">
+                <span class="flex items-center gap-1.5"><i data-lucide="shield" class="w-3 h-3"></i> Encrypted Access</span>
+                <span>Registry Node 1.0</span>
+            </div>
+        </div>
+    </div>
+
+<!-- SECURE ART API INITIALIZATION -->
+<script>
+    let artCsrfToken = null;
+    let artInitialized = false;
+
+    async function loadArtCsrfToken() {
+        const response = await fetch('/api/art/csrf-token', {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success || !data.csrf_token) {
+            throw new Error(data.error || 'Unable to initialize ART security token.');
+        }
+        artCsrfToken = data.csrf_token;
+        return artCsrfToken;
+    }
+
+    async function secureArtFetch(url, options = {}) {
+        const method = String(options.method || 'GET').toUpperCase();
+        const headers = new Headers(options.headers || {});
+        headers.set('Accept', 'application/json');
+
+        if (method !== 'GET' && method !== 'HEAD') {
+            if (!artCsrfToken) await loadArtCsrfToken();
+            headers.set('X-CSRF-Token', artCsrfToken);
+            headers.set('Content-Type', 'application/json');
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            method,
+            headers,
+            credentials: 'same-origin',
+            cache: 'no-store'
+        });
+
+        if (response.status === 401) {
+            window.location.href = '/login';
+            throw new Error('Authentication required.');
+        }
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || 'Secure ART operation failed.');
+        }
+        return data;
+    }
+
+    async function initializeSecureArtNode() {
+        try {
+            const response = await fetch('/api/firebase-config', {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: { 'Accept': 'application/json' }
+            });
+            const configData = await response.json().catch(() => ({}));
+
+            if (configData.facility_name) {
+                const titleLabel = document.getElementById('facility-db-title');
+                if (titleLabel) {
+                    titleLabel.innerText = `${configData.facility_name} • PLHIV Client Registry Logs`;
+                }
+            }
+
+            if (configData.facility_id) {
+                localStorage.setItem('facility_id', configData.facility_id);
+            }
+            if (configData.facility_name) {
+                localStorage.setItem('facility_name', configData.facility_name);
+            }
+
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            const roleBadge = document.getElementById('user-role-badge');
+            if (roleBadge) {
+                roleBadge.innerText = `Clearance: ${clearance}`;
+            }
+
+            await loadArtCsrfToken();
+            artInitialized = true;
+
+            if (window.initializeLocalRegistryControllers) {
+                await window.initializeLocalRegistryControllers();
+            }
+        } catch (err) {
+            const tbody = document.getElementById('master-table-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-rose-500 font-semibold">Unable to initialize the secure ART registry.</td></tr>`;
+            }
+            const count = document.getElementById('record-count');
+            if (count) count.innerText = '0';
+        }
+    }
+
+    window.secureArtFetch = secureArtFetch;
+    window.loadArtCsrfToken = loadArtCsrfToken;
+    window.addEventListener('DOMContentLoaded', initializeSecureArtNode, { once: true });
+</script>
+
+    <!-- UI WORKSPACE CONTROLLERS & EVENT BINDINGS -->
+
+    <!-- =========================================================
+         SECURE ART DELETE MODAL
+         Typed confirmation: DELETE
+         ========================================================= -->
+    <div
+        id="art-delete-modal"
+        class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="art-delete-modal-title"
+    >
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="archive-x" class="w-5 h-5 text-rose-600"></i>
+                    </div>
+
+                    <div>
+                        <h3 id="art-delete-modal-title" class="text-sm font-black uppercase tracking-wide text-slate-900">
+                            Archive &amp; Delete ART Client
+                        </h3>
+                        <p class="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                            This action archives the clinical record in
+                            <span class="font-mono font-bold text-slate-700">deleted_logs</span>
+                            before processing the active ART record.
+                        </p>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    id="art-delete-modal-close"
+                    onclick="window.closeArtDeleteModal()"
+                    class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition"
+                    aria-label="Close"
+                >
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+
+                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                    <div class="text-[10px] uppercase tracking-wider font-black text-rose-500 mb-1">
+                        Client UIC
+                    </div>
+
+                    <div
+                        id="art-delete-uic"
+                        class="font-mono text-lg font-black text-slate-900 break-all"
+                    >
+                        ---
+                    </div>
+                </div>
+
+                <div class="text-xs text-slate-600 leading-relaxed">
+                    To confirm this operation, type
+                    <span class="font-mono font-black text-rose-600">DELETE</span>
+                    exactly in the field below.
+                </div>
+
+                <div>
+                    <label
+                        for="art-delete-confirmation"
+                        class="block text-[10px] uppercase tracking-wider font-black text-slate-500 mb-1.5"
+                    >
+                        Type DELETE to continue
+                    </label>
+
+                    <input
+                        id="art-delete-confirmation"
+                        type="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                        autocapitalize="characters"
+                        placeholder="DELETE"
+                        class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 text-sm font-mono font-bold tracking-widest uppercase focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition"
+                    >
+
+                    <p
+                        id="art-delete-confirmation-hint"
+                        class="text-[10px] text-slate-400 mt-1.5"
+                    >
+                        Confirmation is case-sensitive.
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button
+                        type="button"
+                        id="art-delete-cancel"
+                        onclick="window.closeArtDeleteModal()"
+                        class="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="button"
+                        id="art-delete-confirm"
+                        onclick="window.executeArtDelete()"
+                        disabled
+                        class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-black transition flex items-center gap-1.5"
+                    >
+                        <i data-lucide="archive-x" class="w-3.5 h-3.5"></i>
+                        Archive &amp; Delete
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🔥 ART DELETE V1 LOADED - dbv3.html');
+        let currentClient = {};
+        let isNewRecordMode = false;
+        
+        let rawCachedRegistrySnapshot = [];
+        let rawCachedDemographicsSnapshot = [];
+
+        function addCD4Field() {
+            const zone = document.getElementById('cd4-entry-zone');
+            if(!zone) return;
+            const entryId = 'cd4-' + Date.now();
+            const div = document.createElement('div');
+            div.id = entryId;
+            div.className = "flex gap-2 items-end bg-teal-50/30 border border-teal-100 p-2 rounded mt-2";
+            div.innerHTML = `
+                <div class="flex-1">
+                    <label class="text-[9px] uppercase font-bold text-teal-800">CD4 Count (cells/µL)</label>
+                    <input type="number" class="w-full border border-slate-200 bg-white rounded p-1 text-[11px] focus:outline-none">
+                </div>
+                <div class="w-28">
+                    <label class="text-[9px] uppercase font-bold text-teal-800">Test Date</label>
+                    <input type="date" class="w-full border border-slate-200 bg-white rounded p-1 text-[11px] font-mono focus:outline-none">
+                </div>
+                <button type="button" onclick="document.getElementById('${entryId}').remove()" class="text-rose-400 hover:text-rose-600 p-1 mb-0.5"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+            `;
+            zone.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function addVLField() {
+            const zone = document.getElementById('vl-entry-zone');
+            if(!zone) return;
+            const entryId = 'vl-' + Date.now();
+            const div = document.createElement('div');
+            div.id = entryId;
+            div.className = "flex gap-2 items-end bg-rose-50/30 border border-rose-100 p-2 rounded mt-2";
+            div.innerHTML = `
+                <div class="flex-1">
+                    <label class="text-[9px] uppercase font-bold text-rose-800">VL Count (copies/mL)</label>
+                    <input type="number" class="w-full border border-slate-200 bg-white rounded p-1 text-[11px] focus:outline-none">
+                </div>
+                <div class="w-28">
+                    <label class="text-[9px] uppercase font-bold text-rose-800">Test Date</label>
+                    <input type="date" class="w-full border border-slate-200 bg-white rounded p-1 text-[11px] font-mono focus:outline-none">
+                </div>
+                <button type="button" onclick="document.getElementById('${entryId}').remove()" class="text-rose-400 hover:text-rose-600 p-1 mb-0.5"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+            `;
+            zone.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function runAutomatedUicBirthdayExtractor(uicStringValue) {
+            const sanitizedValue = uicStringValue.trim();
+            if (sanitizedValue.length !== 14) return;
+            
+            const dateExtractionSubstring = sanitizedValue.slice(-8);
+            if (!/^\d{8}$/.test(dateExtractionSubstring)) return; 
+            
+            const extractedMonthStr = dateExtractionSubstring.substring(0, 2);
+            const extractedDayStr = dateExtractionSubstring.substring(2, 4);
+            const extractedYearStr = dateExtractionSubstring.substring(4, 8);
+            
+            const constructedIsoDateString = `${extractedYearStr}-${extractedMonthStr}-${extractedDayStr}`;
+            
+            const testDateInstance = new Date(constructedIsoDateString);
+            if (isNaN(testDateInstance.getTime())) return; 
+            
+            const birthdayInputNode = document.getElementById('input-bday');
+            if (birthdayInputNode) {
+                birthdayInputNode.value = constructedIsoDateString;
+                handleBdayInput(constructedIsoDateString); 
+            }
+        }
+
+        function windowInitKPMultiSelectPayload(kpJoinedString) {
+            const zone = document.getElementById('input-kp-multiselect-zone');
+            if (!zone) return;
+            const checkboxes = zone.querySelectorAll('input[type="checkbox"]');
+            const tokenArrays = kpJoinedString ? kpJoinedString.split(',').map(s => s.trim()) : [];
+            
+            checkboxes.forEach(box => {
+                box.checked = tokenArrays.includes(box.value);
+            });
+        }
+
+        function extractKPMultiselectJoinedString() {
+            const zone = document.getElementById('input-kp-multiselect-zone');
+            if (!zone) return 'Specify';
+            const checkedValues = Array.from(zone.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+            return checkedValues.length > 0 ? checkedValues.join(', ') : 'Specify';
+        }
+
+        window.initializeLocalRegistryControllers = async function() {
+            lucide.createIcons();
+
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            if (clearance === 'Viewer') {
+                const addRecordBtn = document.getElementById('btn-add-record');
+                if (addRecordBtn) addRecordBtn.style.display = 'none';
+                const importRecordBtn = document.getElementById('btn-import-record');
+                if (importRecordBtn) importRecordBtn.style.display = 'none';
+            }
+
+            initRealtimeRegistryListener();
+            bindFormActionHandlers();
+        };
+
+        function calculateAge(birthdate) {
+            if (!birthdate) return null;
+            const birth = new Date(birthdate);
+            if (isNaN(birth.getTime())) return null;
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age >= 0 ? age : 0;
+        }
+
+        function handleBdayInput(val) {
+            const calculated = calculateAge(val);
+            document.getElementById('input-age-dynamic').innerText = calculated !== null ? `Age: ${calculated}` : 'Age: --';
+        }
+
+        function openClientModal(uic, mode = 'view') {
+            const modal = document.getElementById('client-modal');
+            if (!modal) return;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            if (uic) {
+                fetchClientDocument(uic, mode);
+            } else {
+                showDetails('', {}, true);
+                toggleEditMode(true);
+            }
+        }
+
+        function closeClientModal() {
+            const modal = document.getElementById('client-modal');
+            if (modal) {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+        }
+
+        function toggleEditMode(isEditing) {
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            if (clearance === 'Viewer' && isEditing) {
+                alert("Insufficient permissions!");
+                return;
+            }
+            document.getElementById('wrapper-view').classList.toggle('hidden', isEditing);
+            document.getElementById('wrapper-edit').classList.toggle('hidden', !isEditing);
+            document.getElementById('btn-edit').classList.toggle('hidden', isEditing);
+        }
+
+        function toggleConfirmatoryFields() {
+            const status = document.getElementById('input-confirmatory-status').value;
+            const targetDiv = document.getElementById('cond-confirmatory');
+            if (targetDiv) {
+                targetDiv.classList.toggle('hidden', status !== 'Done');
+            }
+        }
+
+        function toggleConditionalFields() {
+            const inception = document.getElementById('input-inception').value;
+            const outcome = document.getElementById('input-outcome').value;
+            
+            const incDiv = document.getElementById('cond-inception');
+            if (incDiv) {
+                incDiv.classList.toggle('hidden', inception === 'OPD');
+                if (inception === 'Trans-in') {
+                    document.getElementById('lbl-inc-date').innerText = 'Trans-in Date';
+                    document.getElementById('lbl-inc-from').innerText = 'Trans-in From';
+                } else if (inception === 'Referred') {
+                    document.getElementById('lbl-inc-date').innerText = 'Referred Date';
+                    document.getElementById('lbl-inc-from').innerText = 'Referred From';
+                }
+            }
+
+            const outDiv = document.getElementById('cond-outcome');
+            if (outDiv) {
+                outDiv.classList.toggle('hidden', outcome === 'Active' || outcome === 'LTFU');
+                if (outcome === 'Deceased') {
+                    document.getElementById('lbl-out-date').innerText = 'Date of Death';
+                    document.getElementById('lbl-out-to').innerText = 'Cause / Notes';
+                } else if (outcome === 'Trans-out') {
+                    document.getElementById('lbl-out-date').innerText = 'Trans-out Date';
+                    document.getElementById('lbl-out-to').innerText = 'Trans-out To';
+                }
+            }
+        }
+
+        function toggleProphylaxisFields(target) {
+            const element = document.getElementById(`input-${target}`);
+            if (element) {
+                const isChecked = element.checked;
+                document.getElementById(`cond-${target}-dates`).classList.toggle('hidden', !isChecked);
+            }
+        }
+
+        function toggleTbFields() {
+            const element = document.getElementById('input-tb-status');
+            if (element) {
+                const tbVal = element.value;
+                document.getElementById('cond-tb-dates').classList.toggle('hidden', tbVal === 'No active TB');
+            }
+        }
+
+        function toggleOIContainer() {
+            const element = document.getElementById('input-oi-history');
+            if (element) {
+                const hasOI = element.checked;
+                const container = document.getElementById('oi-container');
+                if (container) {
+                    container.classList.toggle('hidden', !hasOI);
+                    if (hasOI && document.getElementById('oi-list').children.length === 0) {
+                        addOIField();
+                    }
+                }
+            }
+        }
+
+        function addOIField(type = '', date = '') {
+            const list = document.getElementById('oi-list');
+            if (!list) return;
+            const rowId = 'oi-' + Date.now() + Math.random().toString(36).substr(2, 5);
+            const div = document.createElement('div');
+            div.id = rowId;
+            div.className = "flex gap-2 items-end bg-white p-2 rounded border border-slate-200";
+            
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            const isViewer = clearance === 'Viewer';
+
+            div.innerHTML = `
+                <div class="flex-1">
+                    <label class="text-[9px] uppercase font-bold text-slate-400">STI/OI Type</label>
+                    <input type="text" value="${escapeHtml(type)}" ${isViewer ? 'disabled' : ''} class="w-full border border-slate-200 rounded p-1 text-[11px] focus:outline-none focus:border-teal-500">
+                </div>
+                <div class="w-28">
+                    <label class="text-[9px] uppercase font-bold text-slate-400">Diagnosis Date</label>
+                    <input type="date" value="${escapeHtml(date)}" ${isViewer ? 'disabled' : ''} class="w-full border border-slate-200 rounded p-1 text-[11px] font-mono focus:outline-none focus:border-teal-500">
+                </div>
+                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-rose-400 hover:text-rose-600 p-1 mb-0.5 ${isViewer ? 'hidden' : ''}">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            `;
+            list.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function calculateTOT(t0DateVal, artDateVal) {
+            const totView = document.getElementById('view-art-tot');
+            const totInput = document.getElementById('input-art-tot'); 
+
+            if (!totView || !totInput || !t0DateVal || !artDateVal) return;
+
+            const t0 = new Date(t0DateVal);
+            const art = new Date(artDateVal);
+
+            if (!isNaN(t0.getTime()) && !isNaN(art.getTime())) {
+                const diffTime = art.getTime() - t0.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                let totResult = "SDART";
+                if (diffDays === 0) totResult = "SDART";
+                else if (diffDays > 0 && diffDays <= 7) totResult = "≤7 Days";
+                else if (diffDays > 7) totResult = ">7 Days";
+
+                totView.innerText = totResult;
+                totInput.value = totResult;
+            }
+        }
+
+        async function initRealtimeRegistryListener() {
+            if (!artInitialized) return;
+
+            try {
+                const data = await secureArtFetch('/api/art/registry');
+                const records = Array.isArray(data.records) ? data.records : [];
+
+                rawCachedRegistrySnapshot = records.map(record => ({
+                    ...(record.registry || {}),
+                    id: record.id
+                }));
+
+                rawCachedDemographicsSnapshot = records.map(record => ({
+                    ...(record.demographics || {}),
+                    id: record.id
+                }));
+
+                applyActiveRegistryFilters();
+            } catch (err) {
+                const tbody = document.getElementById('master-table-body');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-rose-500 font-semibold">Unable to load the secure ART registry.</td></tr>`;
+                }
+                const count = document.getElementById('record-count');
+                if (count) count.innerText = '0';
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function safeHttpUrl(value) {
+            try {
+                const url = new URL(String(value || '').trim());
+                return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function applyActiveRegistryFilters() {
+            const tbody = document.getElementById('master-table-body');
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            
+            const searchVal = document.getElementById('table-search').value.trim().toUpperCase();
+            const filterVl = document.getElementById('filter-vl').value;
+            const filterRetention = document.getElementById('filter-retention').value;
+            const filterStart = document.getElementById('filter-date-start').value;
+            const filterDateEnd = document.getElementById('filter-date-end').value;
+
+            tbody.innerHTML = '';
+            
+            const filteredRecords = rawCachedRegistrySnapshot.filter(data => {
+                const uic = data.id || '';
+                const demoData = rawCachedDemographicsSnapshot.find(d => d.id === uic) || {};
+
+                if (searchVal) {
+                    const clientCode = (data.generated_serial_code || '').toUpperCase();
+                    const firstName = (demoData.firstName || '').toUpperCase();
+                    const lastName = (demoData.lastName || '').toUpperCase();
+                    const middleName = (demoData.middleName || '').toUpperCase();
+                    const fullName = `${firstName} ${middleName} ${lastName}`.trim();
+
+                    const matchesUic = uic.includes(searchVal);
+                    const matchesClientCode = clientCode.includes(searchVal);
+                    const matchesName = fullName.includes(searchVal);
+
+                    if (!matchesUic && !matchesClientCode && !matchesName) {
+                        return false;
+                    }
+                }
+
+                if (filterVl && data.vlStatus !== filterVl) return false;
+                if (filterRetention && data.retentionStatus !== filterRetention) return false;
+                
+                if (data.artEnrollmentDate && data.artEnrollmentDate !== '---') {
+                    if (filterStart && data.artEnrollmentDate < filterStart) return false;
+                    if (filterDateEnd && data.artEnrollmentDate > filterDateEnd) return false;
+                } else if (filterStart || filterDateEnd) {
+                    return false;
+                }
+                return true;
+            });
+
+            document.getElementById('record-count').innerText = filteredRecords.length;
+
+            if (filteredRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400 italic">No operational files matching active filters.</td></tr>`;
+                return;
+            }
+
+            filteredRecords.forEach((registryData) => {
+                const uic = registryData.id;
+                const demoData = rawCachedDemographicsSnapshot.find(d => d.id === uic) || {};
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition-colors group";
+                
+                const isSuppressed = registryData.vlStatus === 'Suppressed';
+                const rawVlValue = registryData.vlValue ?? '---';
+                const rawCd4Value = registryData.latestCd4Count ?? '---';
+
+                let ohasisHtmlValueToken = '<span class="text-slate-300 italic">---</span>';
+                const resolvedUrlString = safeHttpUrl(demoData.ohasisUrl || registryData.ohasisUrl || '');
+                
+                if (resolvedUrlString) {
+                    ohasisHtmlValueToken = `<a href="${escapeHtml(resolvedUrlString)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-extrabold hover:underline flex items-center gap-1"><i data-lucide="link" class="w-3 h-3"></i> OHASIS</a>`;
+                }
+
+                const resolvedLastName = demoData.lastName || '';
+                const resolvedFirstName = demoData.firstName || '';
+                const fullNameDisplayToken = (resolvedLastName || resolvedFirstName) ? `${resolvedFirstName} ${resolvedLastName}`.trim() : '---';
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-4 font-mono">${ohasisHtmlValueToken}</td>
+                    <td class="py-2.5 px-4 font-mono text-slate-600">${escapeHtml(registryData.artEnrollmentDate || '---')}</td>
+                    <td class="py-2.5 px-4 font-semibold text-slate-800">${escapeHtml(fullNameDisplayToken)}</td>
+                    <td class="py-2.5 px-4 font-mono font-bold text-teal-600">${escapeHtml(uic)}</td>
+                    <td class="py-2.5 px-4 font-mono font-bold text-slate-700">${escapeHtml(registryData.generated_serial_code || '---')}</td>
+                    <td class="py-2.5 px-4 font-mono text-slate-700 font-medium">${escapeHtml(rawVlValue)}</td>
+                    <td class="py-2.5 px-4">
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${isSuppressed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+                            <span class="w-1 h-1 rounded-full ${isSuppressed ? 'bg-emerald-500' : 'bg-amber-500'}"></span>${escapeHtml(registryData.vlStatus || 'Unknown')}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-4 font-mono text-teal-700 font-bold">${escapeHtml(rawCd4Value)}</td>
+                    <td class="py-2.5 px-4">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${registryData.retentionStatus === 'Active' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${escapeHtml(registryData.retentionStatus || '---')}</span>
+                    </td>
+                    <td class="py-2.5 px-4 font-mono text-slate-600">${escapeHtml(registryData.nextRefillDate || '---')}</td>
+                    <td class="py-2.5 px-4 text-center space-x-1">
+                        <button type="button" data-action="view" data-uic="${escapeHtml(uic)}" class="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-2 py-1 rounded transition">View</button>
+                        <button type="button" data-action="edit" data-uic="${escapeHtml(uic)}" class="text-xs bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-2 py-1 rounded transition ${clearance === 'Viewer' ? 'hidden' : ''}">Edit</button>
+                        <button type="button" data-action="delete" data-uic="${escapeHtml(uic)}" class="text-xs bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 px-2 py-1 rounded transition ${clearance === 'Viewer' ? 'hidden' : ''}">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            tbody.querySelectorAll('[data-action]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const action = button.dataset.action;
+                    const uic = button.dataset.uic;
+                    if (!uic) return;
+                    if (action === 'view') window.openClientModal(uic, 'view');
+                    if (action === 'edit') window.openClientModal(uic, 'edit');
+                    if (action === 'delete') window.deleteClientRecord(uic);
+                });
+            });
+
+            lucide.createIcons();
+        }
+
+        async function fetchClientDocument(uic, mode) {
+            try {
+                const response = await secureArtFetch(`/api/art/client/${encodeURIComponent(uic)}`);
+                const demographics = response.demographics || {};
+                const registry = response.registry || {};
+                const mergedData = { ...demographics, ...registry, uic: response.uic || uic };
+
+                showDetails(uic, mergedData, false);
+                toggleEditMode(mode === 'edit');
+            } catch (err) {
+                alert(err.message || 'Unable to load ART client record.');
+            }
+        }
+
+        function showDetails(uic, data, isNewRecord = false) {
+            isNewRecordMode = isNewRecord;
+
+            currentClient = data;
+            currentClient.uic = uic;
+
+            const badgeEl = document.getElementById('profile-card-badge');
+            const viewSerialEl = document.getElementById('view-patient-code');
+
+            if(isNewRecord) {
+                if (badgeEl) {
+                    badgeEl.innerText = "New Record Creation";
+                    badgeEl.className = "text-[10px] bg-teal-100 text-teal-700 font-bold px-1.5 py-0.5 rounded border border-teal-200 uppercase";
+                }
+                document.getElementById('view-header-uic').innerText = "NEW REGISTRY ENTRY";
+                document.getElementById('input-patient-code').value = '';
+                if (viewSerialEl) viewSerialEl.innerText = "Awaiting manual text assignment...";
+            } else {
+                if (badgeEl) {
+                    badgeEl.innerText = "Case Profile";
+                    badgeEl.className = "text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded border border-slate-200 uppercase";
+                }
+                document.getElementById('view-header-uic').innerText = uic;
+                document.getElementById('input-patient-code').value = data.generated_serial_code || '';
+
+                if (viewSerialEl) {
+                    viewSerialEl.innerText = data.generated_serial_code || '---';
+                }
+            }
+
+            if(document.getElementById('view-uic')) document.getElementById('view-uic').innerText = uic || '---';
+            const mInitial = data.middleName ? ` ${data.middleName.charAt(0)}.` : '';
+            const sfx = data.suffix ? `, ${data.suffix}` : '';
+            if(document.getElementById('view-name')) document.getElementById('view-name').innerText = data.lastName ? `${data.lastName}, ${data.firstName}${mInitial}${sfx}` : '---';
+            if(document.getElementById('view-sex')) document.getElementById('view-sex').innerText = data.sex || '---';
+            if(document.getElementById('view-kp')) document.getElementById('view-kp').innerText = data.kp || '---';
+            if(document.getElementById('view-bday')) document.getElementById('view-bday').innerText = data.bday || '---';
+            if(document.getElementById('view-age')) document.getElementById('view-age').innerText = data.bday ? `${calculateAge(data.bday)} yrs old` : '---';
+            if(document.getElementById('view-address')) document.getElementById('view-address').innerText = data.address || 'No address logged';
+            if(document.getElementById('view-contact')) document.getElementById('view-contact').innerText = data.contactNumber || '---';
+            if(document.getElementById('view-email')) document.getElementById('view-email').innerText = data.emailAddress || '---';
+            if(document.getElementById('view-philhealth')) document.getElementById('view-philhealth').innerText = data.philhealthNumber || '---';
+            
+            if(document.getElementById('view-inception')) document.getElementById('view-inception').innerText = (data.inception || '---').toUpperCase();
+            if(document.getElementById('view-outcome')) document.getElementById('view-outcome').innerText = (data.outcome || '---').toUpperCase();
+            if(document.getElementById('view-t0-date')) document.getElementById('view-t0-date').innerText = data.t0Date || '---';
+            if(document.getElementById('view-t0-result')) document.getElementById('view-t0-result').innerText = (data.t0Result || '---').toUpperCase();
+
+            if(document.getElementById('view-art-date')) document.getElementById('view-art-date').innerText = data.artDate || '---';
+            if(document.getElementById('view-art-tot')) document.getElementById('view-art-tot').innerText = data.artTot || '---';
+            if(document.getElementById('view-art-regimen')) document.getElementById('view-art-regimen').innerText = data.artRegimen || '---';
+            if(document.getElementById('view-art-by')) document.getElementById('view-art-by').innerText = data.artBy || '---';
+            
+            if(document.getElementById('view-ipt-status')) document.getElementById('view-ipt-status').innerText = data.iptChecked ? 'YES' : 'NO';
+            if(document.getElementById('view-cpt-status')) document.getElementById('view-cpt-status').innerText = data.cptChecked ? 'YES' : 'NO';
+            if(document.getElementById('view-tb-status')) document.getElementById('view-tb-status').innerText = data.tbStatus || 'No active TB';
+
+            if(document.getElementById('view-confirmatory-status')) document.getElementById('view-confirmatory-status').innerText = (data.confirmatoryStatus || 'Pending').toUpperCase();
+            if(document.getElementById('view-confirmatory-details')) {
+                document.getElementById('view-confirmatory-details').innerText = data.confirmatoryStatus === 'Done' 
+                    ? `[${data.confirmatoryResult} - Code: ${data.confirmatoryCode} (${data.confirmatoryDate})]` : '';
+            }
+            
+            const sortedCd4 = Array.isArray(data.cd4Logs) ? [...data.cd4Logs].sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
+            const sortedVl = Array.isArray(data.vlLogs) ? [...data.vlLogs].sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
+            
+            if(document.getElementById('view-latest-cd4')) document.getElementById('view-latest-cd4').innerText = sortedCd4.length > 0 ? sortedCd4[0].count : '---';
+            if(document.getElementById('view-latest-vl')) document.getElementById('view-latest-vl').innerText = sortedVl.length > 0 ? sortedVl[0].count : '---';
+
+            const currentFormVlBadge = document.getElementById('form-vl-status-badge');
+            if (currentFormVlBadge) {
+                const latestVlCount = sortedVl.length > 0 ? sortedVl[0].count : '---';
+                if (latestVlCount === '---') {
+                    currentFormVlBadge.innerText = "STATUS: UNKNOWN";
+                    currentFormVlBadge.className = "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase bg-slate-100 text-slate-500 border border-slate-200";
+                } else {
+                    const latestVlText = String(latestVlCount).trim().toLowerCase();
+                    const vlNumeric = Number.parseFloat(latestVlText.replace(/,/g, '').replace(/[<> =]/g, ''));
+                    if (latestVlText.includes('undetectable') || latestVlText === 'ud' || latestVlText === 'nd' || latestVlText === 'tnd' || latestVlText === 'blq' || (!Number.isNaN(vlNumeric) && vlNumeric < 1000)) {
+                        currentFormVlBadge.innerText = "STATUS: SUPPRESSED";
+                        currentFormVlBadge.className = "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase bg-emerald-50 text-emerald-700 border border-emerald-200";
+                    } else {
+                        currentFormVlBadge.innerText = "STATUS: NOT SUPPRESSED";
+                        currentFormVlBadge.className = "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase bg-amber-50 text-amber-700 border border-amber-200";
+                    }
+                }
+            }
+
+            document.getElementById('input-uic').value = isNewRecord ? '' : uic;
+            document.getElementById('input-lastname').value = data.lastName || '';
+            document.getElementById('input-firstname').value = data.firstName || '';
+            document.getElementById('input-middlename').value = data.middleName || '';
+            document.getElementById('input-suffix').value = data.suffix || '';
+            document.getElementById('input-sex').value = data.sex || 'Male';
+            
+            windowInitKPMultiSelectPayload(data.kp);
+
+            document.getElementById('input-bday').value = data.bday || '';
+            document.getElementById('input-contact').value = data.contactNumber || '';
+            document.getElementById('input-email').value = data.emailAddress || '';
+            document.getElementById('input-address').value = data.address || '';
+            document.getElementById('input-philhealth').value = data.philhealthNumber || '';
+            
+            document.getElementById('input-inception').value = data.inception || 'OPD';
+            document.getElementById('input-outcome').value = data.outcome || 'Active';
+            document.getElementById('input-inc-date').value = data.incDate || '';
+            document.getElementById('input-inc-from').value = data.incFrom || '';
+            document.getElementById('input-out-date').value = data.outDate || '';
+            document.getElementById('input-out-to').value = data.outTo || '';
+            document.getElementById('input-t0-date').value = data.t0Date || '';
+            document.getElementById('input-t0-result').value = data.t0Result || 'Reactive';
+            document.getElementById('input-oi-history').checked = !!data.hasOi;
+            document.getElementById('input-art-date').value = data.artDate || '';
+            document.getElementById('input-art-regimen').value = data.artRegimen || '3TC/TDF/DTG';
+            
+            document.getElementById('input-art-by').value = data.artBy || '';
+            document.getElementById('input-ipt').checked = !!data.iptChecked;
+            document.getElementById('input-ipt-start').value = data.iptStart || '';
+            document.getElementById('input-ipt-end').value = data.iptEnd || '';
+            document.getElementById('input-cpt').checked = !!data.cptChecked;
+            document.getElementById('input-cpt-start').value = data.cptStart || '';
+            document.getElementById('input-cpt-end').value = data.cptEnd || '';
+            document.getElementById('input-tb-status').value = data.tbStatus || 'No active TB';
+            document.getElementById('input-tb-start').value = data.tbStart || '';
+            document.getElementById('input-tb-end').value = data.tbEnd || '';
+
+            const viewOhasisLink = document.getElementById('view-ohasis-url');
+            if (viewOhasisLink) {
+                const safeOhasisUrl = safeHttpUrl(data.ohasisUrl);
+                if (safeOhasisUrl) {
+                    viewOhasisLink.innerText = safeOhasisUrl;
+                    viewOhasisLink.href = safeOhasisUrl;
+                    viewOhasisLink.target = '_blank';
+                    viewOhasisLink.rel = 'noopener noreferrer';
+                    viewOhasisLink.classList.remove('text-slate-400', 'pointer-events-none');
+                } else {
+                    viewOhasisLink.innerText = "No OHASIS link mapped to node";
+                    viewOhasisLink.href = "#";
+                    viewOhasisLink.classList.add('text-slate-400', 'pointer-events-none');
+                }
+            }
+
+            document.getElementById('input-ohasis-url').value = data.ohasisUrl || '';
+
+            const displayBox = document.getElementById('canvas-barcode-display');
+            const qrContainer = document.getElementById('view-barcode-zone');
+            if (displayBox && qrContainer) {
+                displayBox.innerHTML = '';
+                if (!isNewRecord && data.ohasisUrl && data.ohasisUrl.trim() !== '' && data.ohasisUrl !== '---') {
+                    new QRCode(displayBox, { text: data.ohasisUrl.trim(), width: 100, height: 100 });
+                    qrContainer.classList.remove('hidden');
+                } else {
+                    qrContainer.classList.add('hidden');
+                }
+            }
+            
+            document.getElementById('input-confirmatory-status').value = data.confirmatoryStatus || 'Pending';
+            toggleConfirmatoryFields();
+            document.getElementById('input-confirmatory-result').value = data.confirmatoryResult || 'Positive';
+            document.getElementById('input-confirmatory-date').value = data.confirmatoryDate || '';
+            document.getElementById('input-confirmatory-code').value = data.confirmatoryCode || '';
+
+            const cd4HistoryContainer = document.getElementById('cd4-history-log');
+            if (cd4HistoryContainer) {
+                cd4HistoryContainer.innerHTML = sortedCd4.length > 0 
+                    ? sortedCd4.map(c => `<div class="flex justify-between p-1"><span>${c.date}</span><span class="font-bold text-teal-600">${c.count} cells/µL</span></div>`).join('')
+                    : '<div class="p-1 text-slate-400 italic">No entries tracked</div>';
+            }
+
+            const vlHistoryContainer = document.getElementById('vl-history-log');
+            if (vlHistoryContainer) {
+                vlHistoryContainer.innerHTML = sortedVl.length > 0 
+                    ? sortedVl.map(v => `<div class="flex justify-between p-1"><span>${v.date}</span><span class="font-bold text-rose-600">${v.count} copies/mL</span></div>`).join('')
+                    : '<div class="p-1 text-slate-400 italic">No entries tracked</div>';
+            }
+
+            const sortedRefills = Array.isArray(data.refillLogs) ? [...data.refillLogs].sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
+            renderRefillHistoryList(sortedRefills);
+
+            document.getElementById('cd4-entry-zone').innerHTML = '';
+            document.getElementById('vl-entry-zone').innerHTML = '';
+            
+            const oiListContainer = document.getElementById('oi-list');
+            if (oiListContainer) oiListContainer.innerHTML = '';
+            if (data.oiLogs && Array.isArray(data.oiLogs)) {
+                data.oiLogs.forEach(oi => addOIField(oi.type, oi.date));
+            }
+
+            runAutomatedUicBirthdayExtractor(uic);
+            calculateTOT(data.t0Date, data.artDate);
+            toggleConditionalFields();
+            toggleProphylaxisFields('ipt');
+            toggleProphylaxisFields('cpt');
+            toggleTbFields();
+            toggleOIContainer();
+            
+            document.getElementById('input-dispense-date').value = data.dispenseDate || '';
+            document.getElementById('input-pills-dispensed').value = data.pillsDispensed || '';
+            document.getElementById('input-dispensed-by').value = data.dispensedBy || '';
+            calculateRefillDates();
+        }
+
+        function openAddRecordWorkspace() {
+            openClientModal('', 'edit');
+        }
+
+        function bindFormActionHandlers() {
+            const saveBtn = document.getElementById('btn-save');
+            if (saveBtn) saveBtn.addEventListener('click', saveClientData);
+
+            const addBtn = document.getElementById('btn-add-record');
+            if (addBtn) addBtn.addEventListener('click', openAddRecordWorkspace);
+
+            const editBtn = document.getElementById('btn-edit');
+            if (editBtn) editBtn.onclick = function() { toggleEditMode(true); };
+
+            document.getElementById('table-search').addEventListener('input', applyActiveRegistryFilters);
+            document.getElementById('filter-vl').addEventListener('change', applyActiveRegistryFilters);
+            document.getElementById('filter-retention').addEventListener('change', applyActiveRegistryFilters);
+            document.getElementById('filter-date-start').addEventListener('change', applyActiveRegistryFilters);
+            document.getElementById('filter-date-end').addEventListener('change', applyActiveRegistryFilters);
+        }
+
+        async function saveClientData() {
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+            if (clearance === 'Viewer') {
+                alert("SECURITY ACCESS DENIED: Missing required modification permissions.");
+                return;
+            }
+
+            let uic = document.getElementById('input-uic').value.trim().toUpperCase();
+
+            if (!uic) {
+                alert("VALIDATION ERROR: Unique Identifier Code (UIC) field is required.");
+                return;
+            }
+
+            const overlay = document.getElementById('saving-overlay');
+            if (overlay) overlay.classList.remove('hidden');
+
+            const cd4LogsBase = Array.isArray(currentClient.cd4Logs) ? [...currentClient.cd4Logs] : [];
+            document.querySelectorAll('#cd4-entry-zone > div').forEach(node => {
+                const count = node.querySelector('input[type="number"]').value;
+                const date = node.querySelector('input[type="date"]').value;
+                if(count && date) cd4LogsBase.push({ count, date });
+            });
+
+            const vlLogsBase = Array.isArray(currentClient.vlLogs) ? [...currentClient.vlLogs] : [];
+            document.querySelectorAll('#vl-entry-zone > div').forEach(node => {
+                const count = node.querySelector('input[type="number"]').value;
+                const date = node.querySelector('input[type="date"]').value;
+                if(count && date) vlLogsBase.push({ count, date });
+            });
+
+            const oiLogsBase = [];
+            document.querySelectorAll('#oi-list > div').forEach(node => {
+                const inputs = node.querySelectorAll('input');
+                const type = inputs[0].value.trim();
+                const date = inputs[1].value;
+                if (type && date) oiLogsBase.push({ type, date });
+            });
+
+            const refillLogsBase = Array.isArray(currentClient.refillLogs) ? [...currentClient.refillLogs] : [];
+            const currentDispenseDate = document.getElementById('input-dispense-date').value;
+            const currentPills = parseInt(document.getElementById('input-pills-dispensed').value) || 0;
+            const currentDispenser = document.getElementById('input-dispensed-by').value.trim();
+            
+            if (currentDispenseDate && currentPills > 0) {
+                const duplicateCheck = refillLogsBase.some(log => log.date === currentDispenseDate && log.pills === currentPills);
+                if (!duplicateCheck) {
+                    refillLogsBase.push({
+                        date: currentDispenseDate,
+                        pills: currentPills,
+                        by: currentDispenser || 'Unspecified staff'
+                    });
+                }
+            }
+
+            const calculatedLatestVl = vlLogsBase.sort((a,b) => new Date(b.date) - new Date(a.date))[0]?.count ?? '---';
+            const calculatedLatestVlText = String(calculatedLatestVl).trim();
+            
+            let resolvedVlStatus = 'Unknown';
+            if (calculatedLatestVlText && calculatedLatestVlText !== '---') {
+                const normalizedVlText = calculatedLatestVlText.toLowerCase();
+                // Accept numeric values as well as qualitative/threshold-style results.
+                const vlNumericMatch = calculatedLatestVlText.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+                const vlNumericValue = vlNumericMatch ? Number(vlNumericMatch[0]) : NaN;
+                if (normalizedVlText.includes('undetectable') || /\b(?:ud|undetected|not detected|none detected|below quantification|blq)\b/.test(normalizedVlText)) {
+                    resolvedVlStatus = 'Suppressed';
+                } else if (!Number.isNaN(vlNumericValue)) {
+                    // Match the VL detector: <1,000 is suppressed; 1,000 or above is not suppressed.
+                    resolvedVlStatus = vlNumericValue < 1000 ? 'Suppressed' : 'Not Suppressed';
+                }
+            }
+
+            const sortedCd4ForPayload = [...cd4LogsBase].sort((a,b) => new Date(b.date) - new Date(a.date));
+            const sortedVlForPayload = [...vlLogsBase].sort((a,b) => new Date(b.date) - new Date(a.date));
+            
+            const computedCode = document.getElementById('input-patient-code').value.trim() || '---';
+
+            const demographicPayload = {
+                lastName: document.getElementById('input-lastname').value,
+                firstName: document.getElementById('input-firstname').value,
+                middleName: document.getElementById('input-middlename').value,
+                suffix: document.getElementById('input-suffix').value,
+                sex: document.getElementById('input-sex').value,
+                kp: extractKPMultiselectJoinedString(),
+                bday: document.getElementById('input-bday').value,
+                contactNumber: document.getElementById('input-contact').value,
+                emailAddress: document.getElementById('input-email').value,
+                address: document.getElementById('input-address').value,
+                philhealthNumber: document.getElementById('input-philhealth').value,
+
+                inception: document.getElementById('input-inception').value,
+                outcome: document.getElementById('input-outcome').value,
+                incDate: document.getElementById('input-inc-date').value,
+                incFrom: document.getElementById('input-inc-from').value,
+                outDate: document.getElementById('input-out-date').value,
+                outTo: document.getElementById('input-out-to').value,
+                t0Date: document.getElementById('input-t0-date').value,
+                t0Result: document.getElementById('input-t0-result').value,
+                hasOi: document.getElementById('input-oi-history').checked,
+                artDate: document.getElementById('input-art-date').value,
+                artTot: document.getElementById('input-art-tot').value,
+                artRegimen: document.getElementById('input-art-regimen').value,
+                artBy: document.getElementById('input-art-by').value,
+                iptChecked: document.getElementById('input-ipt').checked,
+                iptStartDate: document.getElementById('input-ipt-start').value,
+                iptEndDate: document.getElementById('input-ipt-end').value,
+                cptChecked: document.getElementById('input-cpt').checked,
+                cptStartDate: document.getElementById('input-cpt-start').value,
+                cptEndDate: document.getElementById('input-cpt-end').value,
+                tbStatus: document.getElementById('input-tb-status').value,
+                tbTreatmentStart: document.getElementById('input-tb-start').value,
+                tbTreatmentCompleted: document.getElementById('input-tb-end').value,
+                confirmatoryStatus: document.getElementById('input-confirmatory-status').value,
+                confirmatoryResult: document.getElementById('input-confirmatory-result').value,
+                confirmatoryDate: document.getElementById('input-confirmatory-date').value,
+                confirmatoryCode: document.getElementById('input-confirmatory-code').value,
+                dispenseDate: currentDispenseDate,
+                pillsDispensed: currentPills,
+                dispensedBy: currentDispenser,
+                cd4Logs: cd4LogsBase,
+                vlLogs: vlLogsBase,
+                oiLogs: oiLogsBase,
+                refillLogs: refillLogsBase,
+                generated_serial_code: computedCode,
+                ohasisUrl: document.getElementById('input-ohasis-url').value.trim()
+            };
+
+            const registryPayload = {
+                artEnrollmentDate: demographicPayload.artDate || '---',
+                vlStatus: resolvedVlStatus,
+                vlValue: sortedVlForPayload.length > 0 ? sortedVlForPayload[0].count : '---',               
+                latestCd4Count: sortedCd4ForPayload.length > 0 ? sortedCd4ForPayload[0].count : '---',       
+                pillsRemaining: parseInt(document.getElementById('input-pills-remaining').value) || 0,
+                retentionStatus: demographicPayload.outcome,
+                nextRefillDate: document.getElementById('input-next-refill').value || '---',
+                generated_serial_code: computedCode,
+                meta_counters_state: window.activeGeneratedMetaState || {}
+            };
+
+            try {
+                const response = await secureArtFetch('/api/art/client', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        uic,
+                        demographics: demographicPayload,
+                        registry: registryPayload,
+                        meta_counters_state: window.activeGeneratedMetaState || {}
+                    })
+                });
+
+                if (overlay) overlay.classList.add('hidden');
+                alert(`SUCCESS: Secure clinical records written successfully for [${response.uic || uic}].`);
+                closeClientModal();
+                await initRealtimeRegistryListener();
+            } catch (err) {
+                if (overlay) overlay.classList.add('hidden');
+                alert(err.message || 'Unable to save ART client record.');
+            }
+        }
+
+        // =========================================================
+        // SECURE ART DELETE / ARCHIVE CONFIRMATION
+        // Same typed-confirmation mechanism used by PrEP.
+        // =========================================================
+
+        let artDeleteTargetUic = '';
+        let artDeleteInProgress = false;
+
+        function closeArtDeleteModal() {
+            const modal = document.getElementById('art-delete-modal');
+            const input = document.getElementById('art-delete-confirmation');
+            const confirmButton = document.getElementById('art-delete-confirm');
+
+            if (artDeleteInProgress) return;
+
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            if (input) {
+                input.value = '';
+                input.classList.remove(
+                    'border-rose-400',
+                    'ring-2',
+                    'ring-rose-100'
+                );
+            }
+
+            if (confirmButton) {
+                confirmButton.disabled = true;
+            }
+
+            artDeleteTargetUic = '';
+        }
+
+        function openArtDeleteModal(uic) {
+            const normalizedUic = String(uic || '')
+                .trim()
+                .toUpperCase();
+
+            console.log('🔥 ART DELETE V1 CLICK', normalizedUic);
+
+            if (!normalizedUic) {
+                alert('DELETE ERROR: Missing client UIC.');
+                return;
+            }
+
+            const modal = document.getElementById('art-delete-modal');
+            const uicElement = document.getElementById('art-delete-uic');
+            const input = document.getElementById('art-delete-confirmation');
+            const confirmButton = document.getElementById('art-delete-confirm');
+
+            if (!modal || !uicElement || !input || !confirmButton) {
+                console.error('[ART DELETE] Secure confirmation modal is missing.');
+                alert('DELETE ERROR: Secure confirmation interface failed to initialize.');
+                return;
+            }
+
+            artDeleteTargetUic = normalizedUic;
+            uicElement.textContent = normalizedUic;
+            input.value = '';
+            input.classList.remove(
+                'border-rose-400',
+                'ring-2',
+                'ring-rose-100'
+            );
+            confirmButton.disabled = true;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            lucide.createIcons();
+
+            window.setTimeout(() => input.focus(), 50);
+        }
+
+        async function deleteClientRecord(uic) {
+            const clearance = localStorage.getItem('user_clearance') || 'Viewer';
+
+            if (clearance === 'Viewer') {
+                alert("SECURITY ACCESS DENIED: Missing required deletion permissions.");
+                return;
+            }
+
+            if (artDeleteInProgress) return;
+
+            openArtDeleteModal(uic);
+        }
+
+        async function executeArtDelete() {
+            if (artDeleteInProgress) return;
+
+            const normalizedUic = artDeleteTargetUic;
+            const input = document.getElementById('art-delete-confirmation');
+            const modal = document.getElementById('art-delete-modal');
+            const confirmButton = document.getElementById('art-delete-confirm');
+            const cancelButton = document.getElementById('art-delete-cancel');
+            const closeButton = document.getElementById('art-delete-modal-close');
+
+            if (!normalizedUic || !input || !confirmButton) {
+                return;
+            }
+
+            if (input.value !== 'DELETE') {
+                input.classList.add(
+                    'border-rose-400',
+                    'ring-2',
+                    'ring-rose-100'
+                );
+                input.focus();
+                return;
+            }
+
+            artDeleteInProgress = true;
+
+            confirmButton.disabled = true;
+            confirmButton.innerHTML = `
+                <span class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                Processing...
+            `;
+
+            if (cancelButton) cancelButton.disabled = true;
+            if (closeButton) closeButton.disabled = true;
+
+            try {
+                console.log(
+                    '[ART DELETE V1] Sending archive/delete request:',
+                    normalizedUic
+                );
+
+                const response = await secureArtFetch(
+                    `/api/art/client/${encodeURIComponent(normalizedUic)}`,
+                    {
+                        method: 'DELETE'
+                    }
+                );
+
+                console.log('[ART DELETE V1] Server response:', response);
+
+                if (response.archived === true || response.deleted === true) {
+                    if (modal) {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    }
+
+                    alert(
+                        `SUCCESS\n\n` +
+                        `ART client [${normalizedUic}] was archived ` +
+                        `and processed from the active registry.`
+                    );
+
+                    closeClientModal();
+                    await initRealtimeRegistryListener();
+
+                } else if (
+                    response.deleted === false &&
+                    response.archived === false
+                ) {
+                    if (modal) {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    }
+
+                    alert(
+                        `NOTICE\n\n` +
+                        `No active ART record was found for [${normalizedUic}].`
+                    );
+
+                    await initRealtimeRegistryListener();
+
+                } else {
+                    throw new Error(
+                        'Unexpected response from the ART deletion endpoint.'
+                    );
+                }
+
+            } catch (err) {
+                console.error('[ART DELETE V1 FAILED]', err);
+
+                alert(
+                    `DELETE FAILED\n\n` +
+                    (err.message || 'Unable to archive and delete ART client record.')
+                );
+
+            } finally {
+                artDeleteInProgress = false;
+
+                if (cancelButton) cancelButton.disabled = false;
+                if (closeButton) closeButton.disabled = false;
+
+                confirmButton.disabled = true;
+                confirmButton.innerHTML = `
+                    <i data-lucide="archive-x" class="w-3.5 h-3.5"></i>
+                    Archive &amp; Delete
+                `;
+
+                const currentInput = document.getElementById(
+                    'art-delete-confirmation'
+                );
+
+                if (currentInput) {
+                    currentInput.value = '';
+                    currentInput.classList.remove(
+                        'border-rose-400',
+                        'ring-2',
+                        'ring-rose-100'
+                    );
+                }
+
+                lucide.createIcons();
+            }
+        }
+
+        window.closeArtDeleteModal = closeArtDeleteModal;
+        window.openArtDeleteModal = openArtDeleteModal;
+        window.executeArtDelete = executeArtDelete;
+
+
+        // Enable the ART delete button only when DELETE is typed exactly.
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('art-delete-confirmation');
+            const confirmButton = document.getElementById('art-delete-confirm');
+
+            if (!input || !confirmButton) return;
+
+            input.addEventListener('input', () => {
+                const valid = input.value === 'DELETE';
+                confirmButton.disabled = !valid;
+
+                input.classList.remove(
+                    'border-rose-400',
+                    'ring-2',
+                    'ring-rose-100'
+                );
+            });
+
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+
+                    if (input.value === 'DELETE') {
+                        window.executeArtDelete();
+                    }
+                }
+
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+
+                    if (!artDeleteInProgress) {
+                        window.closeArtDeleteModal();
+                    }
+                }
+            });
+        });
+
+        function calculateRefillDates() {
+            const dispenseDateVal = document.getElementById('input-dispense-date').value;
+            const incomingPills = parseInt(document.getElementById('input-pills-dispensed').value) || 0;
+            const currentDispenser = document.getElementById('input-dispensed-by').value.trim();
+            
+            const runoutField = document.getElementById('input-runout-date');
+            const nextRefillField = document.getElementById('input-next-refill');
+            const remainingField = document.getElementById('input-pills-remaining');
+
+            const viewDispense = document.getElementById('view-dispense-date');
+            const viewRemaining = document.getElementById('view-pills-remaining');
+            const viewRunout = document.getElementById('view-runout-date');
+            const viewNextRefill = document.getElementById('view-next-refill');
+
+            let fullTimeline = Array.isArray(currentClient.refillLogs) ? [...currentClient.refillLogs] : [];
+
+            if (dispenseDateVal && incomingPills > 0) {
+                const isDuplicate = fullTimeline.some(log => log.date === dispenseDateVal && log.pills === incomingPills);
+                if (!isDuplicate) {
+                    fullTimeline.push({
+                        date: dispenseDateVal,
+                        pills: incomingPills,
+                        by: currentDispenser || 'Unspecified staff'
+                    });
+                }
+            }
+
+            if (fullTimeline.length === 0) {
+                if(remainingField) remainingField.value = "0";
+                if (viewRemaining) viewRemaining.innerText = "0";
+                if(runoutField) runoutField.value = "---"; 
+                if(nextRefillField) nextRefillField.value = "---";
+                updateRetentionStatusBox(0); return;
+            }
+
+            fullTimeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            let rollingBalance = 0;
+            let timelinePointerDate = null;
+
+            fullTimeline.forEach((log) => {
+                const entryDate = new Date(log.date);
+                entryDate.setHours(0,0,0,0);
+
+                if (timelinePointerDate === null) {
+                    rollingBalance = log.pills;
+                    timelinePointerDate = entryDate;
+                } else {
+                    const msPassedBetween = entryDate.getTime() - timelinePointerDate.getTime();
+                    const daysPassedBetween = Math.max(0, Math.floor(msPassedBetween / (1000 * 60 * 60 * 24)));
+                    rollingBalance = Math.max(0, rollingBalance - daysPassedBetween) + log.pills;
+                    timelinePointerDate = entryDate;
+                }
+            });
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            
+            if (timelinePointerDate) {
+                const msSinceLastRefill = today.getTime() - timelinePointerDate.getTime();
+                const daysSinceLastRefill = Math.max(0, Math.floor(msSinceLastRefill / (1000 * 60 * 60 * 24)));
+                rollingBalance = Math.max(-999, rollingBalance - daysSinceLastRefill);
+            }
+
+            if(remainingField) remainingField.value = rollingBalance;
+
+            const runoutDate = new Date(today);
+            runoutDate.setDate(runoutDate.getDate() + rollingBalance);
+            
+            const runoutStr = runoutDate.toISOString().split('T')[0];
+            if(runoutField) runoutField.value = runoutStr;
+
+            const nextRefillDate = new Date(runoutDate);
+            nextRefillDate.setDate(nextRefillDate.getDate() - 7);
+            const nextRefillStr = nextRefillDate.toISOString().split('T')[0];
+            if(nextRefillField) nextRefillField.value = nextRefillStr;
+
+            if (viewDispense) viewDispense.innerText = dispenseDateVal || (fullTimeline[fullTimeline.length - 1]?.date || '---');
+            if (viewRemaining) viewRemaining.innerText = rollingBalance;
+            if (viewRunout) viewRunout.innerText = runoutStr;
+            if (viewNextRefill) viewNextRefill.innerText = nextRefillStr;
+
+            updateRetentionStatusBox(rollingBalance);
+        }
+
+        function updateRetentionStatusBox(remainingPills) {
+            const badge = document.getElementById('refill-status-badge');
+            const box = document.getElementById('refill-status-box');
+            const txt = document.getElementById('refill-status-text');
+            if (!badge || !box || !txt) return;
+            box.classList.remove('hidden');
+
+            const outcomeDropdown = document.getElementById('input-outcome');
+            const isExceptionalOutcome = outcomeDropdown && ['Deceased', 'Trans-out'].includes(outcomeDropdown.value);
+
+            if (remainingPills >= 1) {
+                badge.className = "text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-emerald-50 text-emerald-700 border border-emerald-200";
+                badge.innerText = "STATUS: ACTIVE";
+                box.className = "p-3 rounded-md text-xs font-medium border bg-emerald-50/40 border-emerald-200 text-emerald-800";
+                txt.innerText = `🟢 ACTIVE: Client currently maintains a valid remaining medication cache (${remainingPills} pills left).`;
+
+                // Keep the ART Outcome dropdown synchronized with the refill status.
+                // Only reverse an automatically assigned LTFU; preserve Deceased/Trans-out.
+                if (outcomeDropdown && outcomeDropdown.value === 'LTFU') {
+                    outcomeDropdown.value = 'Active';
+                    if (window.toggleConditionalFields) window.toggleConditionalFields();
+                }
+            } else {
+                const daysOverdue = Math.abs(remainingPills);
+
+                if (daysOverdue > 30) {
+                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-rose-50 text-rose-700 border border-rose-200";
+                    badge.innerText = "STATUS: LTFU";
+                    box.className = "p-3 rounded-md text-xs font-medium border bg-rose-50/40 border-rose-200 text-rose-800";
+                    txt.innerText = `🚨 LOST TO FOLLOW UP (LTFU): Critical alert node. Client medication depletion exceeds the 30-day post run-out window threshold (${daysOverdue} days unmedicated).`;
+
+                    if (outcomeDropdown && !isExceptionalOutcome) {
+                        outcomeDropdown.value = 'LTFU';
+                        if (window.toggleConditionalFields) window.toggleConditionalFields();
+                    }
+                } else {
+                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-amber-50 text-amber-700 border border-amber-200";
+                    badge.innerText = "STATUS: DUE";
+                    box.className = "p-3 rounded-md text-xs font-medium border bg-amber-50/40 border-amber-200 text-amber-800";
+                    txt.innerText = `⚠️ DUE FOR REFILL: Medication levels are fully depleted, but client remains bounded within the 30-day grace period threshold (${daysOverdue} days overdue).`;
+
+                    // A client within the 30-day grace period is not yet LTFU.
+                    if (outcomeDropdown && outcomeDropdown.value === 'LTFU') {
+                        outcomeDropdown.value = 'Active';
+                        if (window.toggleConditionalFields) window.toggleConditionalFields();
+                    }
+                }
+            }
+        }
+
+        function renderRefillHistoryList(historyArray) {
+            const listElement = document.getElementById('refill-history-list');
+            if (!listElement) return;
+            listElement.innerHTML = '';
+            if (!historyArray || historyArray.length === 0) {
+                listElement.innerHTML = `<div class="p-3 text-slate-400 italic text-center">No structural logs found inside this node.</div>`; 
+                return;
+            }
+            historyArray.forEach(item => {
+                const row = document.createElement('div'); 
+                row.className = "flex justify-between items-center p-2.5 hover:bg-slate-50 transition border-b border-slate-100 last:border-0";
+                row.innerHTML = `
+                    <span class="font-mono font-semibold text-slate-700">${item.date}</span>
+                    <span class="bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-100">+ ${item.pills} Pills</span>
+                    <span class="text-slate-500 text-[10px]"><i class="inline w-3 h-3 text-slate-400"></i> ${item.by}</span>
+                `;
+                listElement.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        window.addCD4Field = addCD4Field;
+        window.addVLField = addVLField;
+        window.handleBdayInput = handleBdayInput;
+        window.toggleEditMode = toggleEditMode;
+        window.toggleConfirmatoryFields = toggleConfirmatoryFields;
+        window.toggleConditionalFields = toggleConditionalFields;
+        window.toggleProphylaxisFields = toggleProphylaxisFields;
+        window.toggleTbFields = toggleTbFields;
+        window.toggleOIContainer = toggleOIContainer;
+        window.addOIField = addOIField;
+        window.calculateRefillDates = calculateRefillDates;
+        window.initializeLocalRegistryControllers = initializeLocalRegistryControllers;
+        window.openClientModal = openClientModal;
+        window.closeClientModal = closeClientModal;
+        window.runAutomatedUicBirthdayExtractor = runAutomatedUicBirthdayExtractor;
+        window.deleteClientRecord = deleteClientRecord;
+    </script>
+</body>
+</html>

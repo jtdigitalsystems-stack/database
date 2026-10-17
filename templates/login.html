@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treatment Database - Access Gateway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex items-center justify-center p-4">
+<div class="w-full max-w-sm bg-white rounded-xl border border-slate-200 shadow-xl p-6 space-y-6">
+
+    <div class="text-center space-y-2">
+        <div class="inline-flex bg-teal-50 p-3 rounded-xl text-teal-600 border border-teal-100">
+            <i data-lucide="shield-alert" class="w-8 h-8"></i>
+        </div>
+        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 uppercase">Treatment Database</h1>
+        <p id="facility-sub-label" class="text-xs text-slate-500 font-medium px-4">Staff Authentication Gateway</p>
+    </div>
+
+    <div id="status-box" class="hidden p-3 rounded text-xs font-semibold border"></div>
+
+    <form id="login-form" class="space-y-4">
+        <div>
+            <label class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-1">Email</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <i data-lucide="mail" class="w-4 h-4"></i>
+                </span>
+                <input type="email" id="login-email" required autocomplete="username" placeholder="name@facility.gov.ph" onblur="autoDetectFacilityByEmail(this.value)" class="w-full bg-slate-50/50 border border-slate-300 rounded-lg py-2 pl-9 pr-4 text-xs font-medium text-slate-900 focus:outline-none focus:border-teal-500 focus:bg-white transition shadow-sm">
+            </div>
+        </div>
+
+        <div>
+            <label class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-1">Password</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                </span>
+                <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••" class="w-full bg-slate-50/50 border border-slate-300 rounded-lg py-2 pl-9 pr-4 text-xs font-medium text-slate-900 focus:outline-none focus:border-teal-500 focus:bg-white transition shadow-sm">
+            </div>
+        </div>
+
+        <div class="text-right">
+            <button type="button" id="forgot-password-btn" class="text-[11px] text-teal-600 hover:text-teal-700 font-bold tracking-wide transition uppercase">
+                Forgot Password?
+            </button>
+        </div>
+
+        <button type="submit" id="btn-submit" class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-md shadow-teal-100 transition hover:bg-teal-700 flex items-center justify-center gap-2">
+            <i data-lucide="key-round" class="w-4 h-4"></i>
+            Login
+        </button>
+    </form>
+
+    <div class="border-t border-slate-100 pt-4 text-center">
+        <span class="text-[10px] font-bold tracking-widest text-slate-400 uppercase font-mono">JBT</span>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+let auth = null;
+let firebaseApp = null;
+let currentFacilityId = null;
+let currentFacilityConfig = null;
+
+lucide.createIcons();
+
+function displayStatus(message, type = "error") {
+    const box = document.getElementById("status-box");
+    if (!box) return;
+    box.textContent = message;
+    box.className = "p-3 rounded text-xs font-semibold border";
+    if (type === "success") {
+        box.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-200");
+    } else {
+        box.classList.add("bg-red-50", "text-red-700", "border-red-200");
+    }
+}
+
+function hideStatus() {
+    const box = document.getElementById("status-box");
+    if (box) box.classList.add("hidden");
+}
+
+async function autoDetectFacilityByEmail(email) {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes("@")) return false;
+
+    try {
+        const response = await fetch(`/api/resolve-user?email=${encodeURIComponent(normalizedEmail)}`, {
+            method: "GET",
+            cache: "no-store",
+            credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.success || !data.found || !data.facility_id) {
+            currentFacilityId = null;
+            currentFacilityConfig = null;
+            auth = null;
+            firebaseApp = null;
+            return false;
+        }
+
+        const facilityId = String(data.facility_id).trim();
+        if (!facilityId || facilityId === "master" || facilityId.toUpperCase() === "NONE SELECTED") {
+            return false;
+        }
+
+        currentFacilityId = facilityId;
+        return await connectToFacilityNode(normalizedEmail);
+    } catch (error) {
+        currentFacilityId = null;
+        currentFacilityConfig = null;
+        auth = null;
+        firebaseApp = null;
+        return false;
+    }
+}
+
+async function connectToFacilityNode(email) {
+    if (!currentFacilityId) return false;
+
+    try {
+        const configResponse = await fetch("/api/login/firebase-config", {
+            method: "GET",
+            cache: "no-store",
+            credentials: "same-origin"
+        });
+
+        const configData = await configResponse.json().catch(() => ({}));
+
+        if (!configResponse.ok || !configData.success || !configData.firebase) {
+            throw new Error(configData.error || "Unable to retrieve facility authentication configuration.");
+        }
+
+        if (!configData.firebase.apiKey || !configData.firebase.authDomain || !configData.firebase.projectId || !configData.firebase.appId) {
+            throw new Error("Facility Firebase configuration is incomplete.");
+        }
+
+        if (String(configData.facility_id || "").trim() !== currentFacilityId) {
+            throw new Error("Facility authentication context changed unexpectedly.");
+        }
+
+        currentFacilityConfig = configData;
+
+        const existingApps = getApps();
+        let app = existingApps.find(existingApp =>
+            existingApp.options &&
+            existingApp.options.projectId === configData.firebase.projectId
+        );
+
+        if (!app) {
+            app = initializeApp(configData.firebase);
+        }
+
+        firebaseApp = app;
+        auth = getAuth(firebaseApp);
+
+        const label = document.getElementById("facility-sub-label");
+        if (label && configData.facility_name) {
+            label.textContent = `Node Connected: ${configData.facility_name}`;
+        }
+
+        displayStatus(`Facility node detected: ${configData.facility_name || currentFacilityId}`, "success");
+        setTimeout(hideStatus, 1800);
+        return true;
+    } catch (error) {
+        currentFacilityConfig = null;
+        auth = null;
+        firebaseApp = null;
+        displayStatus("Unable to initialize the facility authentication node.");
+        return false;
+    }
+}
+
+async function ensureFacilityConnection(email) {
+    if (currentFacilityId && auth && firebaseApp) return true;
+    return await autoDetectFacilityByEmail(email);
+}
+
+async function establishStaffSession(user) {
+    if (!user) throw new Error("Firebase authentication did not return a user.");
+
+    const idToken = await user.getIdToken(true);
+
+    const response = await fetch("/api/staff/session", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+            id_token: idToken
+        })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to establish the secure staff session.");
+    }
+
+    if (String(data.facility_id || "").trim() !== currentFacilityId) {
+        throw new Error("Security verification failed: facility context mismatch.");
+    }
+
+    localStorage.setItem("user_clearance", data.clearancePermission || "Viewer");
+    localStorage.setItem("user_position", data.positionRole || "Staff");
+
+    return data;
+}
+
+async function signOutFirebase() {
+    try {
+        if (auth) {
+            await auth.signOut();
+        }
+    } catch (error) {
+    }
+}
+
+document.getElementById("login-form").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const email = document.getElementById("login-email").value.trim().toLowerCase();
+    const password = document.getElementById("login-password").value;
+    const button = document.getElementById("btn-submit");
+
+    button.disabled = true;
+    button.innerHTML = "Authenticating...";
+    hideStatus();
+
+    try {
+        if (!email || !password) {
+            throw new Error("Email and password are required.");
+        }
+
+        const connected = await ensureFacilityConnection(email);
+
+        if (!connected || !auth || !firebaseApp) {
+            throw new Error("Unable to resolve the facility authentication node for this account.");
+        }
+
+const userCredential = await signInWithEmailAndPassword(auth, email, password);
+const user = userCredential.user;
+
+await establishStaffSession(user);
+
+displayStatus("Authentication successful. Redirecting...", "success");
+
+setTimeout(() => {
+    window.location.href = "/landing.html";
+}, 700);
+    } catch (error) {
+        await signOutFirebase();
+
+        button.disabled = false;
+        button.innerHTML = '<i data-lucide="key-round" class="w-4 h-4"></i> Login';
+        lucide.createIcons();
+
+        if (
+            error.code === "auth/invalid-credential" ||
+            error.code === "auth/user-not-found" ||
+            error.code === "auth/wrong-password"
+        ) {
+            displayStatus("Access Denied: Invalid email or password.");
+            return;
+        }
+
+        if (error.code === "auth/operation-not-allowed") {
+            displayStatus("Email/Password authentication is not enabled for this facility.");
+            return;
+        }
+
+        if (error.code === "auth/too-many-requests") {
+            displayStatus("Too many login attempts. Please try again later.");
+            return;
+        }
+
+        displayStatus(error.message || "Failed to verify credentials.");
+    }
+});
+
+document.getElementById("forgot-password-btn").addEventListener("click", async () => {
+    const email = document.getElementById("login-email").value.trim().toLowerCase();
+
+    if (!email) {
+        displayStatus("Please enter your email address first.");
+        return;
+    }
+
+    try {
+        const connected = await ensureFacilityConnection(email);
+
+        if (!connected || !auth) {
+            throw new Error("Unable to resolve the facility authentication node.");
+        }
+
+        await sendPasswordResetEmail(auth, email);
+
+        displayStatus("Password reset link sent to your email inbox.", "success");
+    } catch (error) {
+
+        if (error.code === "auth/too-many-requests") {
+            displayStatus("Too many recovery attempts. Please try again later.");
+            return;
+        }
+
+        displayStatus("Could not dispatch the password recovery link.");
+    }
+});
+
+window.autoDetectFacilityByEmail = autoDetectFacilityByEmail;
+
+</script>
+</body>
+</html>

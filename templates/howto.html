@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Management Portal - How To Guide</title>
+    
+    {% include 'firebase_config.html' %}
+    
+    <script type="module" src="{{ url_for('static', filename='js/auth_guard.js') }}"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    {% include 'navbar.html' %}
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 flex flex-col items-center max-w-5xl mx-auto w-full px-6 py-8 space-y-6">
+        
+        <!-- TITLE & ACTION BAR -->
+        <div class="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+            <div>
+                <h1 class="text-xl font-black text-slate-900 tracking-tight uppercase">System Operational Workflows</h1>
+                <p class="text-xs text-slate-500 font-medium">Interactive Google Slides user guide for facility staff.</p>
+            </div>
+
+            <!-- PRINT / DOWNLOAD PDF BUTTON -->
+            <button onclick="printSlidesAsPDF()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-extrabold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Print / Save as PDF
+            </button>
+        </div>
+
+        <!-- EMBEDDED GOOGLE SLIDES VIEWER -->
+        <div class="w-full bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden p-2">
+            <div class="relative w-full overflow-hidden rounded-xl bg-slate-900" style="padding-top: 56.25%;">
+                <iframe 
+                    id="slides-iframe"
+                    src="https://docs.google.com/presentation/d/e/2PACX-1vRaf8doPI6o3umSp24aLiUKord9tdJfOk56JDiUI0T673VFWvDmUwFH2i5e7AAvcr_xQ64TKdnYLfPz/embed?start=false&loop=false&delayms=5000" 
+                    class="absolute top-0 left-0 w-full h-full border-0" 
+                    allowfullscreen="true" 
+                    mozallowfullscreen="true" 
+                    webkitallowfullscreen="true">
+                </iframe>
+            </div>
+        </div>
+
+        <!-- PRINT HELPER CARD -->
+        <div class="w-full bg-amber-50/60 border border-amber-200/80 rounded-xl p-4 text-xs font-medium text-amber-900 flex items-start gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="text-amber-600 flex-shrink-0 mt-0.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <div>
+                <strong class="uppercase font-bold text-[10px] tracking-wider block mb-0.5 text-amber-800">Printing Note:</strong>
+                Clicking <strong>"Print / Save as PDF"</strong> opens the published slide layout in a dedicated print window where you can directly save or send all slides to your printer.[cite: 9]
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="text-center py-6 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-200 bg-white">
+        Developed by the MNE Team of LAKAN Network 2026. For the use of LAKAN Network only.[cite: 9]
+    </footer>
+
+    <script>
+        function printSlidesAsPDF() {
+            const slidesPubUrl = "https://docs.google.com/presentation/d/e/2PACX-1vRaf8doPI6o3umSp24aLiUKord9tdJfOk56JDiUI0T673VFWvDmUwFH2i5e7AAvcr_xQ64TKdnYLfPz/pub?start=false&loop=false";
+            
+            const printWin = window.open(slidesPubUrl, '_blank');
+            if (printWin) {
+                printWin.focus();
+            } else {
+                alert("POPUP BLOCKED: Please enable browser popups to open the printable slide deck.");
+            }
+        }
+    </script>
+</body>
+</html>
