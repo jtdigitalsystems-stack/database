@@ -26,7 +26,7 @@ export async function exportCurrentFormToGoogleSheets() {
 
     try {
         const csrfToken = await getArtExportCsrfToken();
-        const response = await fetch("/api/art/export", {
+        const response = await fetch("/api/art/sheets-backup", {
             method: "POST",
             credentials: "same-origin",
             cache: "no-store",

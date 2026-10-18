@@ -193,6 +193,22 @@
                                             <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Client Inception</span><p id="view-inception" class="text-slate-800 font-bold mt-0.5">---</p></div>
                                             <div><span class="text-slate-400 uppercase text-[10px] block font-bold">ART Outcome</span><p id="view-outcome" class="text-slate-800 font-bold mt-0.5">---</p></div>
                                         </div>
+                                        <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-2">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Inception Date</span><p id="view-inc-date" class="text-slate-700 font-mono mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Inception Source</span><p id="view-inc-from" class="text-slate-700 mt-0.5 break-words">---</p></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Outcome Date</span><p id="view-out-date" class="text-slate-700 font-mono mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">Outcome Details</span><p id="view-out-to" class="text-slate-700 mt-0.5 break-words">---</p></div>
+                                        </div>
+                                        <div class="border-t border-slate-200 pt-2">
+                                            <span class="text-slate-400 uppercase text-[10px] block font-bold">Mode of Transmission</span>
+                                            <p id="view-mode-of-transmission" class="text-teal-800 font-bold mt-1 bg-teal-50 border border-teal-100 rounded-md px-3 py-2">---</p>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">History of OIs</span><p id="view-oi-history" class="text-slate-700 font-bold mt-0.5">---</p></div>
+                                            <div><span class="text-slate-400 uppercase text-[10px] block font-bold">HIV T0 Test Date</span><p id="view-t0-date-summary" class="text-slate-700 font-mono mt-0.5">---</p></div>
+                                        </div>
                                         <div class="border-t border-slate-200 pt-2">
                                             <span class="text-slate-400 uppercase text-[10px] block font-bold tracking-wider">Laboratory Records</span>
                                             <div class="grid grid-cols-2 gap-4 text-slate-700 mt-1">
@@ -392,6 +408,19 @@
                                                 </select>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <div class="border-t border-slate-100 pt-3">
+                                        <label for="input-mode-of-transmission" class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Mode of Transmission</label>
+                                        <select id="input-mode-of-transmission" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
+                                            <option value="">Select mode of transmission</option>
+                                            <option value="Male-Male Sex">Male-Male Sex</option>
+                                            <option value="Sex w/ Males & Females">Sex w/ Males & Females</option>
+                                            <option value="Male-Female Sex">Male-Female Sex</option>
+                                            <option value="Mother-to-child">Mother-to-child</option>
+                                            <option value="Blood transfusion">Blood transfusion</option>
+                                            <option value="Unknown">Unknown</option>
+                                        </select>
                                     </div>
 
                                     <div class="border-t border-slate-100 pt-3">
@@ -666,7 +695,9 @@
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(data.error || 'Secure ART operation failed.');
+            const error = new Error(data.error || 'Secure ART operation failed.');
+            error.duplicate = data.duplicate || null;
+            throw error;
         }
         return data;
     }
@@ -1335,6 +1366,13 @@
             
             if(document.getElementById('view-inception')) document.getElementById('view-inception').innerText = (data.inception || '---').toUpperCase();
             if(document.getElementById('view-outcome')) document.getElementById('view-outcome').innerText = (data.outcome || '---').toUpperCase();
+            if(document.getElementById('view-inc-date')) document.getElementById('view-inc-date').innerText = data.incDate || '---';
+            if(document.getElementById('view-inc-from')) document.getElementById('view-inc-from').innerText = data.incFrom || '---';
+            if(document.getElementById('view-out-date')) document.getElementById('view-out-date').innerText = data.outDate || '---';
+            if(document.getElementById('view-out-to')) document.getElementById('view-out-to').innerText = data.outTo || '---';
+            if(document.getElementById('view-mode-of-transmission')) document.getElementById('view-mode-of-transmission').innerText = data.modeOfTransmission || '---';
+            if(document.getElementById('view-oi-history')) document.getElementById('view-oi-history').innerText = data.hasOi ? 'YES' : 'NO';
+            if(document.getElementById('view-t0-date-summary')) document.getElementById('view-t0-date-summary').innerText = data.t0Date || '---';
             if(document.getElementById('view-t0-date')) document.getElementById('view-t0-date').innerText = data.t0Date || '---';
             if(document.getElementById('view-t0-result')) document.getElementById('view-t0-result').innerText = (data.t0Result || '---').toUpperCase();
 
@@ -1401,6 +1439,7 @@
             document.getElementById('input-out-to').value = data.outTo || '';
             document.getElementById('input-t0-date').value = data.t0Date || '';
             document.getElementById('input-t0-result').value = data.t0Result || 'Reactive';
+            document.getElementById('input-mode-of-transmission').value = data.modeOfTransmission || '';
             document.getElementById('input-oi-history').checked = !!data.hasOi;
             document.getElementById('input-art-date').value = data.artDate || '';
             document.getElementById('input-art-regimen').value = data.artRegimen || '3TC/TDF/DTG';
@@ -1513,6 +1552,43 @@
             document.getElementById('filter-date-end').addEventListener('change', applyActiveRegistryFilters);
         }
 
+        function showDuplicateRecordWarning(duplicate, fallbackMessage) {
+            if (!duplicate || !duplicate.existing_uic) {
+                alert(fallbackMessage || 'Duplicate record detected.');
+                return;
+            }
+            const existingUic = String(duplicate.existing_uic);
+            const fieldName = duplicate.field || 'Identifier';
+            const value = duplicate.value || existingUic;
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4';
+            const panel = document.createElement('div');
+            panel.className = 'w-full max-w-md rounded-xl bg-white p-5 shadow-2xl';
+            const heading = document.createElement('h3');
+            heading.className = 'mb-2 text-lg font-bold text-rose-700';
+            heading.textContent = `${fieldName} already exists`;
+            const message = document.createElement('p');
+            message.className = 'mb-3 text-sm text-slate-700';
+            message.textContent = `${fieldName} already exists. Check the existing record:`;
+            const link = document.createElement('button');
+            link.type = 'button';
+            link.className = 'mb-4 block font-semibold text-blue-700 underline';
+            link.textContent = `[${value}] — open existing record`;
+            link.addEventListener('click', () => {
+                overlay.remove();
+                closeClientModal();
+                window.openClientModal(existingUic, 'edit');
+            });
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white';
+            close.textContent = 'Close';
+            close.addEventListener('click', () => overlay.remove());
+            panel.append(heading, message, link, close);
+            overlay.appendChild(panel);
+            document.body.appendChild(overlay);
+        }
+
         async function saveClientData() {
             const clearance = localStorage.getItem('user_clearance') || 'Viewer';
             if (clearance === 'Viewer') {
@@ -1611,6 +1687,7 @@
                 outTo: document.getElementById('input-out-to').value,
                 t0Date: document.getElementById('input-t0-date').value,
                 t0Result: document.getElementById('input-t0-result').value,
+                modeOfTransmission: document.getElementById('input-mode-of-transmission').value,
                 hasOi: document.getElementById('input-oi-history').checked,
                 artDate: document.getElementById('input-art-date').value,
                 artTot: document.getElementById('input-art-tot').value,
@@ -1659,17 +1736,30 @@
                         uic,
                         demographics: demographicPayload,
                         registry: registryPayload,
-                        meta_counters_state: window.activeGeneratedMetaState || {}
+                        meta_counters_state: window.activeGeneratedMetaState || {},
+                        is_new_record: isNewRecordMode
                     })
                 });
 
                 if (overlay) overlay.classList.add('hidden');
-                alert(`SUCCESS: Secure clinical records written successfully for [${response.uic || uic}].`);
+                let backupMessage = 'Google Sheets backup failed. The client record was saved in the database; use the backup retry after checking the facility webhook configuration.';
+                try {
+                    const backupResult = await secureArtFetch('/api/art/sheets-backup', {
+                        method: 'POST',
+                        body: JSON.stringify({ uic })
+                    });
+                    if (backupResult.success) backupMessage = 'Google Sheets backup completed.';
+                } catch (backupError) {
+                    console.error('[ART SHEETS BACKUP]', backupError);
+                    backupMessage += `\nReason: ${backupError.message || 'Unknown backup error'}`;
+                }
+                alert(`SUCCESS: Secure clinical records written successfully for [${response.uic || uic}].\n\n${backupMessage}`);
                 closeClientModal();
                 await initRealtimeRegistryListener();
             } catch (err) {
                 if (overlay) overlay.classList.add('hidden');
-                alert(err.message || 'Unable to save ART client record.');
+                if (err.duplicate) showDuplicateRecordWarning(err.duplicate, err.message);
+                else alert(err.message || 'Unable to save ART client record.');
             }
         }
 

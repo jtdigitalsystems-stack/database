@@ -150,78 +150,86 @@
     <!-- AUTHENTICATED USER + FACILITY CONTEXT -->
     <script>
         async function loadHubContextData() {
-—            const navLabel = document.getElementById('nav-facility-name');
+            const navLabel = document.getElementById('nav-facility-name');
             const heroLabel = document.getElementById('hero-facility-name');
+            const userTag = document.getElementById('user-display-name');
 
             try {
-                // Both endpoints are protected by the Flask staff session.
                 const [staffResponse, facilityResponse] = await Promise.all([
                     fetch('/api/staff/me', {
                         method: 'GET',
                         credentials: 'same-origin',
-                        cache: 'no-store'
+                        cache: 'no-store',
+                        headers: { 'Accept': 'application/json' }
                     }),
                     fetch('/api/firebase-config', {
                         method: 'GET',
                         credentials: 'same-origin',
-                        cache: 'no-store'
+                        cache: 'no-store',
+                        headers: { 'Accept': 'application/json' }
                     })
                 ]);
 
                 if (staffResponse.status === 401 || facilityResponse.status === 401) {
-                    window.location.href = '{{ url_for("login_page") }}';
+                    window.location.replace('{{ url_for("login_page") }}');
                     return;
                 }
 
-                if (!staffResponse.ok || !facilityResponse.ok) {
-                    throw new Error('Unable to resolve authenticated staff context.');
+                if (!staffResponse.ok) {
+                    throw new Error(`Staff context request failed (${staffResponse.status}).`);
+                }
+                if (!facilityResponse.ok) {
+                    throw new Error(`Facility context request failed (${facilityResponse.status}).`);
                 }
 
                 const staffData = await staffResponse.json();
                 const facilityData = await facilityResponse.json();
 
-                if (!staffData.success || !facilityData.success) {
-                    throw new Error('Invalid authenticated context.');
+                if (staffData.success !== true || facilityData.success !== true) {
+                    throw new Error('The server did not return a valid staff/facility context.');
                 }
 
+                const staff = staffData.staff || {};
                 const staffName = String(
-                    staffData.staff?.name || 'Clinical Staff'
+                    staff.name || staff.displayName || staff.email || 'Clinical Staff'
                 ).trim();
 
+                // Support both the current facility_name field and older facility records
+                // that may store the display name as name.
                 const facilityName = String(
-                    facilityData.facility_name || 'Facility'
+                    facilityData.facility_name ||
+                    facilityData.name ||
+                    facilityData.facility?.facility_name ||
+                    facilityData.facility?.name ||
+                    facilityData.facility_id ||
+                    staff.facility_id ||
+                    'Facility'
                 ).trim();
 
-                if (userTag) {
-                    userTag.innerText = `Welcome back, ${staffName}`;
-                }
+                if (userTag) userTag.textContent = `Welcome back ${staffName}`;
+                if (navLabel) navLabel.textContent = `${facilityName} Client Database`;
+                if (heroLabel) heroLabel.textContent = `${facilityName} Client Database`;
 
-                if (navLabel) {
-                    navLabel.innerText = `${facilityName} Client Database`;
+                // Surface useful diagnostics if the server has no facility display name.
+                if (facilityName === 'Facility') {
+                    console.warn('Facility context returned without a display name.', {
+                        staffFacilityId: staff.facility_id,
+                        response: facilityData
+                    });
                 }
-
-                if (heroLabel) {
-                    heroLabel.innerText = `${facilityName} Client Database`;
-                }
-
             } catch (error) {
                 console.error('Failed to load authenticated hub context:', error);
-
-                if (userTag) {
-                    userTag.innerText = 'Welcome back, Clinical Staff';
-                }
-
-                if (navLabel) {
-                    navLabel.innerText = 'Client Database';
-                }
-
-                if (heroLabel) {
-                    heroLabel.innerText = 'Client Database';
-                }
+                if (userTag) userTag.textContent = 'Welcome back';
+                if (navLabel) navLabel.textContent = 'Facility unavailable';
+                if (heroLabel) heroLabel.textContent = 'Client Database';
             }
         }
 
-        document.addEventListener('DOMContentLoaded', loadHubContextData);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadHubContextData, { once: true });
+        } else {
+            loadHubContextData();
+        }
     </script>
 
 </body>

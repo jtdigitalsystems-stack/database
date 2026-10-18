@@ -6,6 +6,7 @@ import hmac
 import re
 import io
 import csv
+import requests
 
 from datetime import datetime, timezone
 from functools import wraps
@@ -612,12 +613,30 @@ def staff_me():
             "error": "Authentication required."
         }), 401
 
+    facility_id = str(session.get("facility_id", "")).strip()
+    facility_name = facility_id or "Facility"
+    if mother_db is not None and facility_id:
+        try:
+            facility_snapshot = mother_db.collection("facilities").document(facility_id).get()
+            if facility_snapshot.exists:
+                facility_data = facility_snapshot.to_dict() or {}
+                facility_name = str(
+                    facility_data.get("facility_name")
+                    or facility_data.get("name")
+                    or facility_data.get("displayName")
+                    or facility_data.get("display_name")
+                    or facility_id
+                ).strip() or facility_id
+        except Exception as error:
+            app.logger.warning("Unable to resolve staff facility display name: %r", error)
+
     return jsonify({
         "success": True,
         "staff": {
             "uid": session.get("staff_uid"),
             "email": session.get("staff_email"),
-            "facility_id": session.get("facility_id"),
+            "facility_id": facility_id,
+            "facility_name": facility_name,
             "clearance": session.get("staff_clearance"),
             "position": session.get("staff_position"),
             "name": session.get("staff_name"),
@@ -707,13 +726,18 @@ def firebase_config():
             "success": True,
             "facility_id": facility_id,
             "facility_name": str(
-                facility_data.get(
-                    "facility_name",
-                    facility_data.get(
-                        "name",
-                        facility_id
-                    )
-                )
+                facility_data.get("facility_name")
+                or facility_data.get("name")
+                or facility_data.get("displayName")
+                or facility_data.get("display_name")
+                or facility_id
+            ).strip(),
+            "name": str(
+                facility_data.get("facility_name")
+                or facility_data.get("name")
+                or facility_data.get("displayName")
+                or facility_data.get("display_name")
+                or facility_id
             ).strip(),
             "firebase": firebase_config
         }), 200
@@ -744,7 +768,7 @@ ART_DEMOGRAPHIC_FIELDS = {
     "lastName", "firstName", "middleName", "suffix", "sex", "kp",
     "bday", "contactNumber", "emailAddress", "address", "philhealthNumber",
     "ohasisUrl", "inception", "incDate", "incFrom", "outcome", "outDate",
-    "outTo", "t0Date", "t0Result", "hasOi", "artDate", "artRegimen", "artBy",
+    "outTo", "t0Date", "t0Result", "modeOfTransmission", "hasOi", "artDate", "artRegimen", "artBy",
     "iptChecked", "iptStartDate", "iptEndDate", "cptChecked", "cptStartDate",
     "cptEndDate", "tbStatus", "tbTreatmentStart", "tbTreatmentCompleted",
     "confirmatoryStatus", "confirmatoryResult", "confirmatoryDate",
@@ -865,21 +889,25 @@ def art_get_tenant_db(facility_id):
 
 
 def art_audit(db, context, action, uic=None):
-    """Write a minimal audit record without storing clinical payloads."""
+    """Write compact audit metadata for successful ART CREATE, UPDATE, or ARCHIVE actions only."""
+    action = str(action or "").upper()
+    if action not in {"CREATE", "UPDATE", "ARCHIVE"}:
+        return
     try:
         ref = db.collection("art_audit_logs").document()
         ref.set({
+            "event_id": ref.id,
             "action": action,
+            "record_type": "ART",
             "uic": uic or "",
             "facility_id": context["facility_id"],
             "staff_uid": context["uid"],
-            "staff_email": context["email"],
-            "staff_name": context["name"],
-            "role": context["role"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
-    except Exception:
-        pass
+    except Exception as audit_error:
+        # Audit failure must not reverse an already-committed client operation.
+        print("ART audit write failed:", repr(audit_error))
+
 
 
 @app.route("/dashboard", methods=["GET"])
@@ -932,7 +960,6 @@ def art_registry():
                 "registry": registry,
                 "demographics": demo,
             })
-        art_audit(db, context, "READ_REGISTRY")
         return jsonify({"success": True, "facility_id": context["facility_id"], "records": records}), 200
     except Exception:
         return jsonify({"success": False, "error": "Unable to load ART registry."}), 503
@@ -1015,6 +1042,34 @@ def art_save_client():
         reg["isArchived"] = False
 
         db = art_get_tenant_db(context["facility_id"])
+        is_new_record = payload.get("is_new_record") is True
+
+        # Facility-local duplicate lock: reject a duplicate UIC on creation.
+        existing_demo_ref = db.collection("clients_demographics").document(uic)
+        existing_reg_ref = db.collection("clients_registry").document(uic)
+        existing_demo = existing_demo_ref.get()
+        existing_reg = existing_reg_ref.get()
+        if is_new_record and (existing_demo.exists or existing_reg.exists):
+            return jsonify({
+                "success": False,
+                "error": f"UIC already exists check [{uic}]",
+                "duplicate": {"field": "UIC", "value": uic, "existing_uic": uic}
+            }), 409
+
+        # Client Code must be unique within this facility, including on edits;
+        # a record is allowed to retain its own current code.
+        if serial and serial != "---":
+            code_key = serial.casefold()
+            for collection_name in ("clients_demographics", "clients_registry"):
+                matches = db.collection(collection_name).where("generated_serial_code", "==", serial).stream()
+                for match in matches:
+                    if match.id != uic:
+                        return jsonify({
+                            "success": False,
+                            "error": f"Client Code already exists check [{serial}]",
+                            "duplicate": {"field": "Client Code", "value": serial, "existing_uic": match.id}
+                        }), 409
+        audit_action = "UPDATE" if (existing_demo.exists or existing_reg.exists) else "CREATE"
         batch = db.batch()
         batch.set(db.collection("clients_demographics").document(uic), demo, merge=True)
         batch.set(db.collection("clients_registry").document(uic), reg, merge=True)
@@ -1026,7 +1081,7 @@ def art_save_client():
             "lastUpdatedBy": context["name"],
         }, merge=True)
         batch.commit()
-        art_audit(db, context, "SAVE_CLIENT", uic)
+        art_audit(db, context, audit_action, uic)
         return jsonify({"success": True, "uic": uic, "facility_id": context["facility_id"]}), 200
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
@@ -1175,10 +1230,31 @@ def art_delete_client(uic):
 
         batch.commit()
 
+        # Mirror the complete immutable archive snapshot to this facility's backup spreadsheet.
+        # This is best-effort: the authoritative Firestore archive is already committed.
+        try:
+            _, archive_sync_error = _sheets_backup_post(context, {
+                "record_type": "ART_ARCHIVE",
+                "archive_id": archive_ref.id,
+                "uic": normalized,
+                "archived_at": now,
+                "archived_by": context["name"],
+                "archived_by_uid": context["uid"],
+                "archived_by_email": context["email"],
+                "archive_reason": "Soft deleted",
+                "historical_demographics": demo_data,
+                "historical_registry": reg_data,
+                "archive_payload": archive_payload,
+            })
+            if archive_sync_error:
+                print("ART archive Sheets mirror did not complete for", normalized)
+        except Exception as archive_sync_exc:
+            print("ART archive Sheets mirror failed:", repr(archive_sync_exc))
+
         art_audit(
             db,
             context,
-            "SOFT_DELETE_CLIENT",
+            "ARCHIVE",
             normalized
         )
 
@@ -1352,20 +1428,25 @@ def prep_get_tenant_db(facility_id):
 
 
 def prep_audit(db, context, action, uic=None):
-    """Write minimal audit metadata without clinical payloads."""
+    """Write compact audit metadata for successful PrEP CREATE, UPDATE, or ARCHIVE actions only."""
+    action = str(action or "").upper()
+    if action not in {"CREATE", "UPDATE", "ARCHIVE"}:
+        return
     try:
-        db.collection("prep_audit_logs").document().set({
+        ref = db.collection("prep_audit_logs").document()
+        ref.set({
+            "event_id": ref.id,
             "action": action,
+            "record_type": "PrEP",
             "uic": uic or "",
             "facility_id": context["facility_id"],
             "staff_uid": context["uid"],
-            "staff_email": context["email"],
-            "staff_name": context["name"],
-            "role": context["role"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
-    except Exception:
-        pass
+    except Exception as audit_error:
+        # Audit failure must not reverse an already-committed client operation.
+        print("PrEP audit write failed:", repr(audit_error))
+
 
 
 @app.route("/prepdb.html", methods=["GET"])
@@ -1411,7 +1492,6 @@ def prep_registry():
                 "demographics": demographics.get(doc.id, {}),
             })
 
-        prep_audit(db, context, "LIST_REGISTRY")
         return jsonify({
             "success": True,
             "facility_id": context["facility_id"],
@@ -1448,7 +1528,6 @@ def prep_client(uic):
                 "error": "PrEP client record not found."
             }), 404
 
-        prep_audit(db, context, "VIEW_CLIENT", normalized)
         return jsonify({
             "success": True,
             "uic": normalized,
@@ -1518,16 +1597,39 @@ def prep_save_client():
         registry["lastUpdatedBy"] = context["name"]
 
         db = prep_get_tenant_db(context["facility_id"])
-        batch = db.batch()
+        is_new_record = payload.get("is_new_record") is True
+        existing_demo_ref = db.collection("prep_demographics").document(normalized)
+        existing_reg_ref = db.collection("prep_registry").document(normalized)
+        existing_demo = existing_demo_ref.get()
+        existing_reg = existing_reg_ref.get()
+        if is_new_record and (existing_demo.exists or existing_reg.exists):
+            return jsonify({
+                "success": False,
+                "error": f"UIC already exists check [{normalized}]",
+                "duplicate": {"field": "UIC", "value": normalized, "existing_uic": normalized}
+            }), 409
+
+        serial = str(demographics.get("generated_serial_code") or registry.get("generated_serial_code") or "---").strip()
+        if serial and serial != "---":
+            for collection_name in ("prep_demographics", "prep_registry"):
+                matches = db.collection(collection_name).where("generated_serial_code", "==", serial).stream()
+                for match in matches:
+                    if match.id != normalized:
+                        return jsonify({
+                            "success": False,
+                            "error": f"Client Code already exists check [{serial}]",
+                            "duplicate": {"field": "Client Code", "value": serial, "existing_uic": match.id}
+                        }), 409
 
         demo_ref = db.collection("prep_demographics").document(normalized)
         reg_ref = db.collection("prep_registry").document(normalized)
 
+        audit_action = "UPDATE" if (existing_demo.exists or existing_reg.exists) else "CREATE"
         batch.set(demo_ref, demographics, merge=True)
         batch.set(reg_ref, registry, merge=True)
         batch.commit()
 
-        prep_audit(db, context, "SAVE_CLIENT", normalized)
+        prep_audit(db, context, audit_action, normalized)
         return jsonify({
             "success": True,
             "uic": normalized,
@@ -1812,6 +1914,27 @@ def prep_delete_client(uic):
 
         batch.commit()
 
+        # Mirror the full archive snapshot to the facility backup spreadsheet.
+        # Firestore remains authoritative if the external backup is temporarily unavailable.
+        try:
+            _, archive_sync_error = _sheets_backup_post(context, {
+                "record_type": "PREP_ARCHIVE",
+                "archive_id": archive_ref.id,
+                "uic": normalized,
+                "archived_at": archive_payload.get("archivedAtTimestamp", ""),
+                "archived_by": context["name"],
+                "archived_by_uid": context["uid"],
+                "archived_by_email": context["email"],
+                "archive_reason": archive_payload.get("archiveReason", "Deleted by authorized staff"),
+                "historical_demographics": demo_data,
+                "historical_registry": registry_data,
+                "archive_payload": archive_payload,
+            })
+            if archive_sync_error:
+                print("PrEP archive Sheets mirror did not complete for", normalized)
+        except Exception as archive_sync_exc:
+            print("PrEP archive Sheets mirror failed:", repr(archive_sync_exc))
+
         # =====================================================
         # 11. AUDIT LOG
         # =====================================================
@@ -1819,7 +1942,7 @@ def prep_delete_client(uic):
         prep_audit(
             db,
             context,
-            "DELETE_CLIENT",
+            "ARCHIVE",
             normalized
         )
 
@@ -2013,6 +2136,10 @@ def art_export_prepare_row(
         "PhilHealth Number": get_value(
             demographics,
             "philhealthNumber",
+        ),
+        "Mode of Transmission": get_value(
+            demographics,
+            "modeOfTransmission",
         ),
 
         "ART Enrollment Date": get_value(
@@ -2257,6 +2384,178 @@ def art_export_page():
     return render_template("export.html")
 
 
+# GOOGLE SHEETS BACKUP — SERVER-SIDE, TENANT-SCOPED
+# =========================================================
+
+SHEETS_BACKUP_TIMEOUT_SECONDS = 20
+
+
+def _sheets_backup_scalar(value, default="---"):
+    """Convert Firestore values into safe, compact Apps Script cell values."""
+    if value is None or value == "":
+        return default
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, default=str)
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()
+        except Exception:
+            pass
+    return str(value)
+
+
+def _sheets_backup_latest_log(logs, value_keys, date_keys=()):
+    """Pick the last populated log item from a list of history objects."""
+    if not isinstance(logs, list):
+        return "---", "---"
+    for item in reversed(logs):
+        if not isinstance(item, dict):
+            continue
+        value = next((item.get(k) for k in value_keys if item.get(k) not in (None, "")), None)
+        date = next((item.get(k) for k in date_keys if item.get(k) not in (None, "")), None)
+        if value is not None or date is not None:
+            return _sheets_backup_scalar(value), _sheets_backup_scalar(date)
+    return "---", "---"
+
+
+def _sheets_backup_post(context, payload):
+    """Send a server-built record to the authenticated facility's GAS endpoint."""
+    facility_id = context["facility_id"]
+    snap = mother_db.collection("facilities").document(facility_id).get()
+    if not snap.exists:
+        return None, (jsonify({"success": False, "error": "Facility configuration not found."}), 503)
+    facility = snap.to_dict() or {}
+    webhook = str(facility.get("gas_webhook_url", "")).strip()
+    if not webhook.startswith("https://script.google.com/") and not webhook.startswith("https://script.googleusercontent.com/"):
+        return None, (jsonify({"success": False, "error": "A valid facility Google Apps Script web-app URL is not configured."}), 400)
+    payload["facility_id"] = facility_id
+    payload["synchronized_at"] = datetime.now(timezone.utc).isoformat()
+    try:
+        response = requests.post(webhook, json=payload, timeout=SHEETS_BACKUP_TIMEOUT_SECONDS, allow_redirects=True)
+        body = response.json() if response.content else {}
+        if response.status_code != 200 or not isinstance(body, dict) or body.get("success") is not True:
+            print("Google Sheets backup rejected:", facility_id, response.status_code, str(body)[:500])
+            return None, (jsonify({"success": False, "error": "Google Sheets rejected the backup. Check the Apps Script deployment and logs."}), 502)
+        return body, None
+    except requests.RequestException as error:
+        print("Google Sheets backup transport error:", facility_id, repr(error))
+        return None, (jsonify({"success": False, "error": "Could not reach the facility Google Sheets backup endpoint."}), 502)
+    except ValueError as error:
+        print("Google Sheets backup returned invalid JSON:", facility_id, repr(error))
+        return None, (jsonify({"success": False, "error": "Google Sheets returned an invalid response."}), 502)
+
+
+@app.route("/api/art/sheets-backup", methods=["POST"])
+def art_sheets_backup():
+    context, error = get_art_staff_context(ART_WRITE_ROLES)
+    if error:
+        return error
+    if not verify_art_csrf_token():
+        return jsonify({"success": False, "error": "CSRF validation failed."}), 403
+    request_data = request.get_json(silent=True) or {}
+    uic = art_normalize_uic(request_data.get("uic"))
+    if not uic:
+        return jsonify({"success": False, "error": "A valid UIC is required."}), 400
+    try:
+        db = art_get_tenant_db(context["facility_id"])
+        demo_snap = db.collection("clients_demographics").document(uic).get()
+        reg_snap = db.collection("clients_registry").document(uic).get()
+        if not demo_snap.exists and not reg_snap.exists:
+            return jsonify({"success": False, "error": "ART record not found in this facility."}), 404
+        demo, reg = (demo_snap.to_dict() or {}), (reg_snap.to_dict() or {})
+        vl_value, vl_date = _sheets_backup_latest_log(demo.get("vlLogs", []), ("result", "vlValue", "value", "count"), ("date", "testDate", "collectionDate"))
+        cd4_value, _ = _sheets_backup_latest_log(demo.get("cd4Logs", []), ("result", "cd4Count", "value", "count"), ("date", "testDate"))
+        oi_logs = demo.get("oiLogs", []) if isinstance(demo.get("oiLogs", []), list) else []
+        payload = {
+            "record_type": "ART", "uic": uic,
+            "ohasis_url": demo.get("ohasisUrl", "---"),
+            "art_enrollment_date": reg.get("artEnrollmentDate", demo.get("artDate", "---")),
+            "first_name": demo.get("firstName", "---"), "last_name": demo.get("lastName", "---"),
+            "central_id": demo.get("centralId", demo.get("central_id", "---")),
+            "patient_code": demo.get("generated_serial_code", reg.get("generated_serial_code", "---")),
+            "live_vl_value": reg.get("vlValue", vl_value), "live_vl_status": reg.get("vlStatus", "---"),
+            "live_cd4_value": reg.get("latestCd4Count", cd4_value), "current_retention_status": reg.get("retentionStatus", demo.get("outcome", "---")),
+            "estimated_next_refill": reg.get("nextRefillDate", "---"),
+            "middle_name": demo.get("middleName", "---"), "suffix": demo.get("suffix", "---"),
+            "sex": demo.get("sex", "---"), "key_population": demo.get("kp", "---"),
+            "birthdate": demo.get("bday", "---"), "calculated_age": demo.get("calculatedAge", "---"),
+            "contact_number": demo.get("contactNumber", "---"), "email_address": demo.get("emailAddress", "---"),
+            "address": demo.get("address", "---"), "philhealth_number": demo.get("philhealthNumber", "---"),
+            "inception_status": demo.get("inception", "---"), "inception_date": demo.get("incDate", "---"),
+            "inception_source": demo.get("incFrom", "---"), "mode_of_transmission": demo.get("modeOfTransmission", "Unknown"),
+            "outcome_date": demo.get("outDate", "---"), "outcome_notes": demo.get("outTo", "---"),
+            "t0_test_date": demo.get("t0Date", "---"), "t0_test_result": demo.get("t0Result", "---"),
+            "arv_regimen_type": demo.get("artRegimen", "---"), "art_initiated_by": demo.get("artBy", "---"),
+            "ipt_status": demo.get("iptChecked", "NO"), "ipt_start_date": demo.get("iptStartDate", "---"), "ipt_completed_date": demo.get("iptEndDate", "---"),
+            "cpt_status": demo.get("cptChecked", "NO"), "cpt_start_date": demo.get("cptStartDate", "---"), "cpt_completed_date": demo.get("cptEndDate", "---"),
+            "tb_status": demo.get("tbStatus", "No active TB"), "tb_treatment_start": demo.get("tbTreatmentStart", "---"), "tb_treatment_completed": demo.get("tbTreatmentCompleted", "---"),
+            "confirmatory_status": demo.get("confirmatoryStatus", "---"), "confirmatory_result": demo.get("confirmatoryResult", "---"),
+            "confirmatory_date": demo.get("confirmatoryDate", "---"), "confirmatory_code": demo.get("confirmatoryCode", "---"),
+            "last_dispense_date": demo.get("dispenseDate", "---"), "pills_dispensed": demo.get("pillsDispensed", 0),
+            "calculated_pills_remaining": reg.get("pillsRemaining", 0), "dispensed_by": demo.get("dispensedBy", "---"),
+            "run_out_date": reg.get("runOutDate", "---"), "history_log_flag": "YES", "last_updated_by": demo.get("lastUpdatedBy", context["name"]),
+            "vl_date": vl_date,
+        }
+        for i in range(1, 6):
+            item = oi_logs[i-1] if len(oi_logs) >= i and isinstance(oi_logs[i-1], dict) else {}
+            payload[f"oi_{i}_name"] = item.get("name", item.get("type", "---"))
+            payload[f"oi_{i}_date"] = item.get("date", "---")
+        _, post_error = _sheets_backup_post(context, payload)
+        if post_error:
+            return post_error
+        return jsonify({"success": True, "message": "ART record backed up to Google Sheets.", "uic": uic}), 200
+    except Exception as error:
+        print("ART Google Sheets backup failed:", repr(error))
+        return jsonify({"success": False, "error": "Unable to back up ART record."}), 503
+
+
+@app.route("/api/prep/sheets-backup", methods=["POST"])
+def prep_sheets_backup():
+    context, error = get_prep_staff_context(PREP_WRITE_ROLES)
+    if error:
+        return error
+    if not verify_prep_csrf_token():
+        return jsonify({"success": False, "error": "CSRF validation failed."}), 403
+    request_data = request.get_json(silent=True) or {}
+    uic = prep_normalize_uic(request_data.get("uic"))
+    if not uic:
+        return jsonify({"success": False, "error": "A valid UIC is required."}), 400
+    try:
+        db = prep_get_tenant_db(context["facility_id"])
+        demo_snap = db.collection("prep_demographics").document(uic).get()
+        reg_snap = db.collection("prep_registry").document(uic).get()
+        if not demo_snap.exists and not reg_snap.exists:
+            return jsonify({"success": False, "error": "PrEP record not found in this facility."}), 404
+        demo, reg = (demo_snap.to_dict() or {}), (reg_snap.to_dict() or {})
+        payload = {
+            "record_type": "PREP", "uic": uic,
+            "ohasis_url": demo.get("ohasisUrl", "---"), "prep_enrollment_date": reg.get("prepEnrollmentDate", demo.get("prepDate", "---")),
+            "patient_code": demo.get("generated_serial_code", reg.get("generated_serial_code", "---")),
+            "first_name": demo.get("firstName", "---"), "middle_name": demo.get("middleName", "---"),
+            "last_name": demo.get("lastName", "---"), "suffix": demo.get("suffix", "---"),
+            "sex": demo.get("sex", "---"), "key_population": demo.get("kp", "---"),
+            "birthdate": demo.get("bday", "---"), "calculated_age": demo.get("calculatedAge", "---"),
+            "contact_number": demo.get("contactNumber", "---"), "email_address": demo.get("emailAddress", "---"),
+            "address": demo.get("address", "---"), "prep_status": reg.get("prepStatus", demo.get("prepStatus", "---")),
+            "prep_intended_dosage": reg.get("prepDosage", demo.get("prepDosage", "---")),
+            "prep_regimen": reg.get("prepRegimen", demo.get("prepRegimen", "---")),
+            "t0_test_date": demo.get("t0Date", "---"), "t0_test_result": demo.get("t0Result", "---"),
+            "serum_creatinine": demo.get("serumCreatinine", "---"), "creatinine_clearance": demo.get("creatinineClearance", "---"),
+            "weight": demo.get("weight", "---"), "sti_diagnoses": demo.get("stiLogs", "None"),
+            "gaht_status": demo.get("gahtSpecify", demo.get("gahtToggle", "No")),
+            "last_updated_by": demo.get("lastUpdatedBy", context["name"]),
+        }
+        _, post_error = _sheets_backup_post(context, payload)
+        if post_error:
+            return post_error
+        return jsonify({"success": True, "message": "PrEP record backed up to Google Sheets.", "uic": uic}), 200
+    except Exception as error:
+        print("PrEP Google Sheets backup failed:", repr(error))
+        return jsonify({"success": False, "error": "Unable to back up PrEP record."}), 503
+
+
+
+
 @app.route("/api/art/export", methods=["POST"])
 def art_export():
     """
@@ -2499,6 +2798,7 @@ def art_export():
                 "Email Address",
                 "Address",
                 "PhilHealth Number",
+                "Mode of Transmission",
                 "ART Enrollment Date",
                 "ART Regimen",
                 "ART Status",
@@ -2531,6 +2831,7 @@ def art_export():
                 "Email Address",
                 "Address",
                 "PhilHealth Number",
+                "Mode of Transmission",
                 "ART Enrollment Date",
                 "ART Regimen",
                 "ART Status",
@@ -2565,15 +2866,6 @@ def art_export():
 
         csv_data = output.getvalue()
 
-        # Audit metadata only.
-        # No clinical payload is written to the audit log.
-        art_audit(
-            db,
-            context,
-            "EXPORT_DELETED"
-            if scope == "deleted"
-            else "EXPORT_ACTIVE",
-        )
 
         response = Response(
             csv_data,
@@ -2919,26 +3211,7 @@ def batch_import_clients():
         # the current mapper remains below Firestore's 500-write limit.
         batch.commit()
 
-        # -----------------------------------------------------
-        # 10. AUDIT METADATA ONLY
-        # -----------------------------------------------------
-
-        # Audit failures must not expose patient data or return
-        # the uploaded clinical payload in an error response.
-        art_audit(db, context, "BULK_IMPORT")
-
-        # This route may write PrEP records too. Use the same
-        # authenticated facility database for its audit entry.
-        if any(
-            isinstance(row, dict)
-            and isinstance(row.get("demographics"), dict)
-            and any(
-                key in PREP_DEMOGRAPHIC_FIELDS
-                for key in row["demographics"]
-            )
-            for row in records
-        ):
-            prep_audit(db, context, "BULK_IMPORT")
+        # Audit is intentionally limited to individual CREATE/UPDATE/ARCHIVE operations.
 
         return jsonify({
             "success": True,

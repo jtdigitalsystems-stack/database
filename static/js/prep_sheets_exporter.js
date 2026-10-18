@@ -26,7 +26,7 @@ export async function exportCurrentPrepToGoogleSheets() {
 
     try {
         const csrfToken = await getPrepExportCsrfToken();
-        const response = await fetch("/api/prep/export", {
+        const response = await fetch("/api/prep/sheets-backup", {
             method: "POST",
             credentials: "same-origin",
             cache: "no-store",
