@@ -405,7 +405,44 @@ def selectdb_page():
 @app.route("/facility", methods=["GET"])
 @staff_required
 def facility_page():
-    return render_template("facility.html")
+    # Supply the tenant's Firebase configuration to facility.html, which
+    # includes firebase_config.html and expects the firebase_config variable.
+    facility_id = str(session.get("facility_id", "")).strip()
+
+    if not facility_id or facility_id.lower() == "master":
+        session.clear()
+        return redirect(url_for("login_page"))
+
+    if mother_db is None:
+        return "Facility database is temporarily unavailable.", 503
+
+    try:
+        facility_snapshot = (
+            mother_db.collection("facilities")
+            .document(facility_id)
+            .get()
+        )
+
+        if not facility_snapshot.exists:
+            session.clear()
+            return redirect(url_for("login_page"))
+
+        facility_data = facility_snapshot.to_dict() or {}
+        if facility_data.get("active") is False:
+            session.clear()
+            return redirect(url_for("login_page"))
+
+        firebase_config = facility_data.get("firebase_config", {})
+        if not isinstance(firebase_config, dict):
+            firebase_config = {}
+
+        return render_template(
+            "facility.html",
+            firebase_config=firebase_config,
+        )
+    except Exception:
+        app.logger.exception("Unable to load facility page configuration")
+        return "Unable to load facility configuration. Please try again.", 503
 
 
 @app.route("/reports", methods=["GET"])
