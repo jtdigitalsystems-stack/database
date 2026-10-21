@@ -30,7 +30,9 @@ import firebase_admin
 
 from firebase_admin import credentials, auth, firestore
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(dotenv_path=ENV_PATH)
 
 app = Flask(
     __name__,
@@ -1205,26 +1207,66 @@ def get_facility_admin_sdk(facility_id):
         ).strip("_")
     )
 
+    # Preferred: an explicit per-tenant environment variable.
+    # This preserves compatibility with existing deployments.
     service_account_path = str(
-        os.getenv(
-            service_account_env,
+        os.getenv(service_account_env, "")
+    ).strip().strip('"').strip("'")
+
+    # Automatic fallback: new tenants do not need a new .env entry.
+    # Place each tenant's service-account JSON at:
+    #   secrets/tenant_service_accounts/<facility_id>-service-account.json
+    # Optionally override the directory with TENANT_SERVICE_ACCOUNTS_DIR.
+    if not service_account_path:
+        configured_dir = str(
+            os.getenv("TENANT_SERVICE_ACCOUNTS_DIR", "")
+        ).strip().strip('"').strip("'")
+        if configured_dir:
+            credential_dir = (
+                configured_dir
+                if os.path.isabs(configured_dir)
+                else os.path.join(BASE_DIR, configured_dir)
+            )
+        else:
+            credential_dir = os.path.join(
+                BASE_DIR, "secrets", "tenant_service_accounts"
+            )
+
+        safe_facility_id = re.sub(
+            r"[^A-Za-z0-9_-]+", "_", facility_id
+        ).strip("_")
+        candidates = [
+            os.path.join(
+                credential_dir,
+                f"{safe_facility_id}-service-account.json"
+            ),
+            os.path.join(credential_dir, f"{safe_facility_id}.json"),
+        ]
+        service_account_path = next(
+            (candidate for candidate in candidates if os.path.isfile(candidate)),
             ""
         )
-    ).strip()
 
     if not service_account_path:
         print(
             "❌ TENANT ADMIN SDK INITIALIZATION BLOCKED: "
-            f"Missing environment variable [{service_account_env}] "
-            f"for facility [{facility_id}]."
+            f"No service-account file configured for [{facility_id}]. "
+            f"Set [{service_account_env}] or place a credential file in "
+            "secrets/tenant_service_accounts/ named "
+            f"[{facility_id}-service-account.json]."
         )
         return None, None
+
+    # Resolve relative paths from the superadmin.py directory, not the
+    # shell's current working directory.
+    if not os.path.isabs(service_account_path):
+        service_account_path = os.path.join(BASE_DIR, service_account_path)
 
     if not os.path.isfile(service_account_path):
         print(
             "❌ TENANT ADMIN SDK INITIALIZATION BLOCKED: "
-            f"Service-account file not found for [{facility_id}]: "
-            f"{service_account_path}"
+            f"Service-account file not found for [{facility_id}]. "
+            f"Configured path: {service_account_path}"
         )
         return None, None
 

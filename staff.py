@@ -765,6 +765,295 @@ def firebase_config():
         }), 500 
 
 
+
+# =========================================================
+# FACILITY STAFF USER MANAGEMENT
+# =========================================================
+
+FACILITY_USER_CLEARANCES = {"Viewer", "Editor", "Admin"}
+
+
+def get_facility_user_admin_context():
+    """Authorize facility-admin user management and bind it to the session tenant."""
+    if not require_staff_session():
+        return None, (jsonify({"success": False, "error": "Authentication required."}), 401)
+
+    facility_id = str(session.get("facility_id", "")).strip()
+    staff_uid = str(session.get("staff_uid", "")).strip()
+    staff_email = str(session.get("staff_email", "")).strip().lower()
+    if not facility_id or facility_id.lower() == "master" or not staff_uid or not staff_email:
+        session.clear()
+        return None, (jsonify({"success": False, "error": "Invalid facility context."}), 403)
+    if mother_db is None:
+        return None, (jsonify({"success": False, "error": "Mother database unavailable."}), 503)
+
+    try:
+        staff_snap = mother_db.collection("authorized_clinical_staff").document(staff_email).get()
+        if not staff_snap.exists:
+            session.clear()
+            return None, (jsonify({"success": False, "error": "Staff authorization could not be verified."}), 403)
+        staff = staff_snap.to_dict() or {}
+        if (str(staff.get("uid", "")).strip() != staff_uid
+                or str(staff.get("facility_id", "")).strip() != facility_id
+                or staff.get("accountInitialized") is not True):
+            session.clear()
+            return None, (jsonify({"success": False, "error": "Staff authorization could not be verified."}), 403)
+        clearance = str(staff.get("clearancePermission", "Viewer")).strip()
+        if clearance not in {"Admin", "SuperAdmin"}:
+            return None, (jsonify({"success": False, "error": "Facility Admin clearance is required to manage staff accounts."}), 403)
+        tenant_app = get_facility_admin_sdk(facility_id)
+        return {
+            "facility_id": facility_id,
+            "uid": staff_uid,
+            "email": staff_email,
+            "name": str(staff.get("lastNameFirstName", staff.get("name", staff_email))).strip() or staff_email,
+            "tenant_app": tenant_app,
+            "tenant_db": firestore.client(app=tenant_app),
+        }, None
+    except Exception as exc:
+        app.logger.exception("Facility user admin context failed: %r", exc)
+        return None, (jsonify({"success": False, "error": "Unable to initialize facility user management."}), 503)
+
+
+def facility_user_profile(uid, email, name, bday, position, permission, facility_id, assigned_signature=None):
+    """Tenant staff profile matching the SuperAdmin provisioning contract."""
+    return {
+        "uid": uid,
+        "email": email,
+        "lastNameFirstName": name,
+        "bday": bday or "",
+        "positionRole": position or "Staff",
+        "clearancePermission": permission,
+        "facility_id": facility_id,
+        "accountInitialized": True,
+        "assignedSignature": assigned_signature or f"USER-{uid[:6].upper()}",
+    }
+
+
+@app.route("/api/users", methods=["GET"])
+def facility_list_users():
+    context, error = get_facility_user_admin_context()
+    if error:
+        return error
+    requested_facility = str(request.args.get("facility_id", "")).strip()
+    if requested_facility and requested_facility != context["facility_id"]:
+        return jsonify({"success": False, "error": "You cannot access users from another facility."}), 403
+    try:
+        docs = context["tenant_db"].collection("authorized_clinical_staff").stream()
+        users = []
+        for snap in docs:
+            data = snap.to_dict() or {}
+            if data.get("accountInitialized") is not True:
+                continue
+            if str(data.get("facility_id", "")).strip() != context["facility_id"]:
+                continue
+            users.append({
+                "uid": str(data.get("uid", "")),
+                "email": str(data.get("email", snap.id)),
+                "lastNameFirstName": str(data.get("lastNameFirstName", data.get("name", ""))),
+                "positionRole": str(data.get("positionRole", "Staff")),
+                "clearancePermission": str(data.get("clearancePermission", "Viewer")),
+                "bday": str(data.get("bday", "")),
+            })
+        users.sort(key=lambda item: item["lastNameFirstName"].casefold())
+        return jsonify({"success": True, "facility_id": context["facility_id"], "users": users}), 200
+    except Exception as exc:
+        app.logger.exception("Facility user list failed: %r", exc)
+        return jsonify({"success": False, "error": "Unable to load facility staff accounts."}), 503
+
+
+@app.route("/api/provision-user", methods=["POST"])
+def facility_provision_user():
+    context, error = get_facility_user_admin_context()
+    if error:
+        return error
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"success": False, "error": "Invalid user request."}), 400
+
+    email = str(payload.get("new_email") or payload.get("email") or "").strip().lower()
+    name = str(payload.get("name") or "").strip()
+    password = str(payload.get("password") or "")
+    bday = str(payload.get("bday") or "").strip()
+    position = str(payload.get("position") or "Staff").strip() or "Staff"
+    permission = str(payload.get("permission") or "Editor").strip()
+    if not valid_email(email):
+        return jsonify({"success": False, "error": "Enter a valid email address."}), 400
+    if len(name) < 2:
+        return jsonify({"success": False, "error": "Full name is required."}), 400
+    if len(password) < 6:
+        return jsonify({"success": False, "error": "Password must contain at least 6 characters."}), 400
+    if permission not in FACILITY_USER_CLEARANCES:
+        return jsonify({"success": False, "error": "Invalid permission clearance."}), 400
+
+    from firebase_admin import auth
+    tenant_app = context["tenant_app"]
+    tenant_db = context["tenant_db"]
+    created_uid = None
+    try:
+        # Prevent duplicate authorization records before creating an Auth account.
+        tenant_profile_ref = tenant_db.collection("authorized_clinical_staff").document(email)
+        if tenant_profile_ref.get().exists or mother_db.collection("authorized_clinical_staff").document(email).get().exists:
+            return jsonify({"success": False, "error": "This email is already registered in the staff directory."}), 409
+
+        user_record = auth.create_user(email=email, password=password, display_name=name, app=tenant_app)
+        created_uid = str(user_record.uid).strip()
+        if not created_uid:
+            raise RuntimeError("Firebase Authentication returned no UID.")
+        profile = facility_user_profile(created_uid, email, name, bday, position, permission, context["facility_id"])
+        tenant_profile_ref.set(profile)
+        try:
+            mother_db.collection("authorized_clinical_staff").document(email).set({
+                "uid": created_uid,
+                "email": email,
+                "lastNameFirstName": name,
+                "positionRole": position,
+                "clearancePermission": permission,
+                "facility_id": context["facility_id"],
+                "accountInitialized": True,
+            })
+        except Exception:
+            tenant_profile_ref.delete()
+            raise
+        return jsonify({"success": True, "uid": created_uid, "message": "Staff account created successfully."}), 201
+    except Exception as exc:
+        app.logger.exception("Facility staff provisioning failed: %r", exc)
+        if created_uid:
+            try:
+                tenant_db.collection("authorized_clinical_staff").document(email).delete()
+            except Exception:
+                pass
+            try:
+                auth.delete_user(created_uid, app=tenant_app)
+            except Exception:
+                pass
+        message = str(exc)
+        if "EMAIL_EXISTS" in message.upper() or "already exists" in message.lower():
+            return jsonify({"success": False, "error": "This email is already registered in the facility's Firebase Authentication."}), 409
+        return jsonify({"success": False, "error": "Unable to create staff account. Check the facility Firebase configuration and server logs."}), 503
+
+
+@app.route("/api/update-user", methods=["POST"])
+def facility_update_user():
+    context, error = get_facility_user_admin_context()
+    if error:
+        return error
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"success": False, "error": "Invalid user request."}), 400
+
+    uid = str(payload.get("uid") or "").strip()
+    old_email = str(payload.get("old_email") or "").strip().lower()
+    email = str(payload.get("new_email") or payload.get("email") or "").strip().lower()
+    name = str(payload.get("name") or "").strip()
+    password = str(payload.get("password") or "")
+    bday = str(payload.get("bday") or "").strip()
+    position = str(payload.get("position") or "Staff").strip() or "Staff"
+    permission = str(payload.get("permission") or "Editor").strip()
+    if not uid or not valid_email(email) or len(name) < 2:
+        return jsonify({"success": False, "error": "UID, valid email, and full name are required."}), 400
+    if password and len(password) < 6:
+        return jsonify({"success": False, "error": "A new password must contain at least 6 characters."}), 400
+    if permission not in FACILITY_USER_CLEARANCES:
+        return jsonify({"success": False, "error": "Invalid permission clearance."}), 400
+    if uid == context["uid"] and permission != "Admin":
+        return jsonify({"success": False, "error": "You cannot remove your own Admin clearance."}), 400
+
+    from firebase_admin import auth
+    tenant_app = context["tenant_app"]
+    tenant_db = context["tenant_db"]
+    try:
+        user_record = auth.get_user(uid, app=tenant_app)
+        actual_old_email = str(user_record.email or old_email).strip().lower()
+        old_email = old_email or actual_old_email
+        if actual_old_email != old_email:
+            return jsonify({"success": False, "error": "The selected account email no longer matches. Refresh the staff list and try again."}), 409
+        if email != old_email:
+            if tenant_db.collection("authorized_clinical_staff").document(email).get().exists or mother_db.collection("authorized_clinical_staff").document(email).get().exists:
+                return jsonify({"success": False, "error": "A staff account with the new email already exists."}), 409
+
+        old_profile_ref = tenant_db.collection("authorized_clinical_staff").document(old_email)
+        old_profile_snap = old_profile_ref.get()
+        old_profile = old_profile_snap.to_dict() or {}
+        if not old_profile_snap.exists or str(old_profile.get("uid", "")).strip() != uid or str(old_profile.get("email", old_email)).strip().lower() != old_email or str(old_profile.get("facility_id", "")).strip() != context["facility_id"]:
+            return jsonify({"success": False, "error": "The selected account does not belong to this facility."}), 403
+        if str(old_profile.get("clearancePermission", "Viewer")).strip() == "SuperAdmin":
+            return jsonify({"success": False, "error": "SuperAdmin accounts cannot be modified through facility user management."}), 403
+
+        auth.update_user(uid, email=email, display_name=name, **({"password": password} if password else {}), app=tenant_app)
+        profile = facility_user_profile(
+            uid, email, name, bday or str(old_profile.get("bday", "")), position, permission,
+            context["facility_id"], str(old_profile.get("assignedSignature") or f"USER-{uid[:6].upper()}")
+        )
+        tenant_db.collection("authorized_clinical_staff").document(email).set(profile)
+        mother_db.collection("authorized_clinical_staff").document(email).set({
+            "uid": uid,
+            "email": email,
+            "lastNameFirstName": name,
+            "positionRole": position,
+            "clearancePermission": permission,
+            "facility_id": context["facility_id"],
+            "accountInitialized": True,
+        })
+        if old_email and old_email != email:
+            old_profile_ref.delete()
+            mother_db.collection("authorized_clinical_staff").document(old_email).delete()
+        return jsonify({"success": True, "uid": uid, "message": "Staff account updated successfully."}), 200
+    except Exception as exc:
+        app.logger.exception("Facility staff update failed: %r", exc)
+        return jsonify({"success": False, "error": "Unable to update staff account. Check the facility Firebase configuration and server logs."}), 503
+
+
+@app.route("/api/delete-user", methods=["POST"])
+def facility_delete_user():
+    context, error = get_facility_user_admin_context()
+    if error:
+        return error
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"success": False, "error": "Invalid delete request."}), 400
+    uid = str(payload.get("uid") or "").strip()
+    email = str(payload.get("email") or "").strip().lower()
+    if not uid or not valid_email(email):
+        return jsonify({"success": False, "error": "A valid staff UID and email are required."}), 400
+    if uid == context["uid"]:
+        return jsonify({"success": False, "error": "You cannot delete your own active staff account."}), 400
+
+    from firebase_admin import auth
+    try:
+        tenant_app = context["tenant_app"]
+        tenant_db = context["tenant_db"]
+        user_record = auth.get_user(uid, app=tenant_app)
+        if str(user_record.email or "").strip().lower() != email:
+            return jsonify({"success": False, "error": "The selected account email no longer matches. Refresh the staff list and try again."}), 409
+        tenant_profile_ref = tenant_db.collection("authorized_clinical_staff").document(email)
+        tenant_profile = tenant_profile_ref.get()
+        tenant_data = tenant_profile.to_dict() or {}
+        if (not tenant_profile.exists
+                or str(tenant_data.get("uid", "")).strip() != uid
+                or str(tenant_data.get("facility_id", "")).strip() != context["facility_id"]):
+            return jsonify({"success": False, "error": "The selected account does not belong to this facility."}), 403
+        if str(tenant_data.get("clearancePermission", "Viewer")).strip() == "SuperAdmin":
+            return jsonify({"success": False, "error": "SuperAdmin accounts cannot be deleted through facility user management."}), 403
+        staff_ref = mother_db.collection("authorized_clinical_staff").document(email)
+        staff_snap = staff_ref.get()
+        if staff_snap.exists:
+            staff_data = staff_snap.to_dict() or {}
+            if str(staff_data.get("uid", "")).strip() != uid or str(staff_data.get("facility_id", "")).strip() != context["facility_id"]:
+                return jsonify({"success": False, "error": "The central staff identity does not match this facility account."}), 403
+        auth.delete_user(uid, app=tenant_app)
+        tenant_profile_ref.delete()
+        staff_snap = staff_ref.get()
+        if staff_snap.exists:
+            staff_data = staff_snap.to_dict() or {}
+            if str(staff_data.get("uid", "")).strip() == uid and str(staff_data.get("facility_id", "")).strip() == context["facility_id"]:
+                staff_ref.delete()
+        return jsonify({"success": True, "message": "Staff account successfully removed."}), 200
+    except Exception as exc:
+        app.logger.exception("Facility staff deletion failed: %r", exc)
+        return jsonify({"success": False, "error": "Unable to remove staff account. Check the facility Firebase configuration and server logs."}), 503
+
+
 # =========================================================
 # ART DATABASE — SERVER-SIDE SECURITY BOUNDARY
 # =========================================================

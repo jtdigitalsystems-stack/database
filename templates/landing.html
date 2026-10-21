@@ -51,17 +51,17 @@
                 </div>
             </button>
 
-            <button type="button" disabled aria-disabled="true" class="group bg-slate-100 p-4 rounded-xl border border-slate-200 text-left flex flex-col justify-between h-40 opacity-60 cursor-not-allowed">
+            <button type="button" onclick="window.location.href='{{ url_for("facility_page") }}'" class="group bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-500 text-left transition-all duration-300 flex flex-col justify-between h-40">
                 <div class="space-y-3">
-                    <div class="w-10 h-10 rounded-lg bg-slate-200 text-slate-400 border border-slate-300 flex items-center justify-center transition-colors duration-300">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
                         <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0Z"/></svg>
                     </div>
                     <div>
-                        <h2 class="text-sm font-extrabold text-slate-500 uppercase tracking-wide">My Clinic</h2>
+                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-wide">My Clinic</h2>
                         <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Manage facility profile, information, and staff.</p>
                     </div>
                 </div>
-                <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1 mt-3">
+                <div class="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     Go to my Clinic &rarr;
                 </div>
             </button>

@@ -113,15 +113,20 @@
                             <input type="email" id="usr-email" required placeholder="staff@facility.gov.ph" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:border-indigo-500">
                         </div>
                         <div>
-                            <label class="text-[9px] uppercase font-bold text-slate-500 block mb-1">Password *</label>
-                            <input type="password" id="usr-password" placeholder="•••••••• (Min 6 chars)" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:border-indigo-500">
+                            <label id="usr-password-label" for="usr-password" class="text-[9px] uppercase font-bold text-slate-500 block mb-1">Password *</label>
+                            <input type="password" id="usr-password" autocomplete="new-password" placeholder="At least 6 characters" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:border-indigo-500">
+                            <p id="usr-password-help" class="mt-1 text-[10px] text-slate-400">Required for a new account; leave blank to keep the current password when editing.</p>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="text-[9px] uppercase font-bold text-slate-500 block mb-1">Position / Role</label>
                             <input type="text" id="usr-position" placeholder="Clinical Physician" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label for="usr-bday" class="text-[9px] uppercase font-bold text-slate-500 block mb-1">Date of Birth</label>
+                            <input type="date" id="usr-bday" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:border-indigo-500">
                         </div>
                         <div>
                             <label class="text-[9px] uppercase font-bold text-slate-500 block mb-1">Permission Clearance</label>
@@ -312,7 +317,12 @@
             document.getElementById('usr-email').value = '';
             document.getElementById('usr-password').value = '';
             document.getElementById('usr-position').value = '';
+            document.getElementById('usr-bday').value = '';
             document.getElementById('usr-permission').value = 'Editor';
+            const passwordInput = document.getElementById('usr-password');
+            const passwordLabel = document.getElementById('usr-password-label');
+            if (passwordInput) { passwordInput.required = true; passwordInput.placeholder = 'At least 6 characters'; }
+            if (passwordLabel) passwordLabel.textContent = 'Password *';
             
             const btn = document.getElementById('btn-save-user');
             if (btn) btn.innerHTML = `<i data-lucide="user-plus" class="w-4 h-4"></i> Save Staff Member`;
@@ -328,7 +338,12 @@
             document.getElementById('usr-name').value = user.lastNameFirstName || '';
             document.getElementById('usr-email').value = user.email || '';
             document.getElementById('usr-position').value = user.positionRole || '';
+            document.getElementById('usr-bday').value = user.bday || '';
             document.getElementById('usr-permission').value = user.clearancePermission || 'Editor';
+            const passwordInput = document.getElementById('usr-password');
+            const passwordLabel = document.getElementById('usr-password-label');
+            if (passwordInput) { passwordInput.value = ''; passwordInput.required = false; passwordInput.placeholder = 'Leave blank to keep current password'; }
+            if (passwordLabel) passwordLabel.textContent = 'New Password (Optional)';
 
             const btn = document.getElementById('btn-save-user');
             if (btn) btn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update Staff Member`;
@@ -363,6 +378,7 @@
                 name: name,
                 password: password,
                 position: document.getElementById('usr-position').value.trim(),
+                bday: document.getElementById('usr-bday').value,
                 permission: document.getElementById('usr-permission').value,
                 facility_id: currentFacilityId
             };
@@ -382,13 +398,13 @@
                     body: JSON.stringify(payload)
                 });
 
-                const data = await res.json();
-                if (data.success) {
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.success) {
                     alert(data.message || "Staff member saved successfully.");
                     clearUserForm();
                     loadFacilityUsersList();
                 } else {
-                    alert("User Operation Error: " + (data.error || 'Unable to save staff account.'));
+                    alert("User Operation Error: " + (data.error || `Unable to save staff account (HTTP ${res.status}).`));
                 }
             } catch (err) {
                 console.error("Save staff user error:", err);
