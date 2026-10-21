@@ -94,7 +94,7 @@
                             <th class="py-3 px-4">Enrolment Date</th>
                             <th class="py-3 px-4">Full Name</th>
                             <th class="py-3 px-4">UIC</th>
-                            <th class="py-3 px-4">Client Code</th>
+                            <th class="py-3 px-4"><button type="button" id="sort-client-code" class="inline-flex items-center gap-1 hover:text-teal-700 focus:outline-none" aria-label="Sort by Client Code" aria-sort="none">Client Code <span id="sort-client-code-icon" aria-hidden="true">↕</span></button></th>
                             <th class="py-3 px-4">VL Result</th>
                             <th class="py-3 px-4">VL Status</th>
                             <th class="py-3 px-4">CD4 Count</th>
@@ -877,6 +877,7 @@
         
         let rawCachedRegistrySnapshot = [];
         let rawCachedDemographicsSnapshot = [];
+        let clientCodeSortDirection = "asc";
 
         function addCD4Field() {
             const zone = document.getElementById('cd4-entry-zone');
@@ -1194,51 +1195,100 @@
             }
         }
 
+        function normalizeFilterText(value) {
+            return String(value ?? '').trim().toLowerCase();
+        }
+
+        function resolveRegistryVlStatus(data) {
+            const existing = String(data?.vlStatus ?? '').trim();
+            if (existing && !['unknown', '---', 'n/a', 'na'].includes(existing.toLowerCase())) {
+                const normalized = existing.toLowerCase();
+                if (normalized.includes('not suppressed') || normalized.includes('unsuppressed')) return 'Not Suppressed';
+                if (normalized.includes('suppress')) return 'Suppressed';
+                return existing;
+            }
+
+            const raw = String(data?.vlValue ?? '').trim().toLowerCase();
+            if (!raw || raw === '---') return 'Unknown';
+            if (raw.includes('undetectable') || /\b(?:ud|nd|tnd|blq|undetected|not detected|none detected)\b/.test(raw)) {
+                return 'Suppressed';
+            }
+            const match = raw.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+            if (match) return Number(match[0]) < 1000 ? 'Suppressed' : 'Not Suppressed';
+            return 'Unknown';
+        }
+
         function applyActiveRegistryFilters() {
             const tbody = document.getElementById('master-table-body');
+            if (!tbody) return;
             const clearance = localStorage.getItem('user_clearance') || 'Viewer';
-            
-            const searchVal = document.getElementById('table-search').value.trim().toUpperCase();
-            const filterVl = document.getElementById('filter-vl').value;
-            const filterRetention = document.getElementById('filter-retention').value;
-            const filterStart = document.getElementById('filter-date-start').value;
-            const filterDateEnd = document.getElementById('filter-date-end').value;
+
+            const searchVal = normalizeFilterText(document.getElementById('table-search')?.value);
+            const filterVl = normalizeFilterText(document.getElementById('filter-vl')?.value);
+            const filterRetention = normalizeFilterText(document.getElementById('filter-retention')?.value);
+            const filterStart = document.getElementById('filter-date-start')?.value || '';
+            const filterDateEnd = document.getElementById('filter-date-end')?.value || '';
 
             tbody.innerHTML = '';
-            
+
             const filteredRecords = rawCachedRegistrySnapshot.filter(data => {
-                const uic = data.id || '';
-                const demoData = rawCachedDemographicsSnapshot.find(d => d.id === uic) || {};
+                const uic = String(data.id || '');
+                const demoData = rawCachedDemographicsSnapshot.find(d => String(d.id) === uic) || {};
+                const clientCode = String(data.generated_serial_code || demoData.generated_serial_code || '');
+                const firstName = String(demoData.firstName || '');
+                const lastName = String(demoData.lastName || '');
+                const middleName = String(demoData.middleName || '');
+                const fullName = `${firstName} ${middleName} ${lastName}`.trim();
 
                 if (searchVal) {
-                    const clientCode = (data.generated_serial_code || '').toUpperCase();
-                    const firstName = (demoData.firstName || '').toUpperCase();
-                    const lastName = (demoData.lastName || '').toUpperCase();
-                    const middleName = (demoData.middleName || '').toUpperCase();
-                    const fullName = `${firstName} ${middleName} ${lastName}`.trim();
-
-                    const matchesUic = uic.includes(searchVal);
-                    const matchesClientCode = clientCode.includes(searchVal);
-                    const matchesName = fullName.includes(searchVal);
-
-                    if (!matchesUic && !matchesClientCode && !matchesName) {
-                        return false;
-                    }
+                    const haystack = [uic, clientCode, firstName, middleName, lastName, fullName]
+                        .map(normalizeFilterText);
+                    if (!haystack.some(value => value.includes(searchVal))) return false;
                 }
 
-                if (filterVl && data.vlStatus !== filterVl) return false;
-                if (filterRetention && data.retentionStatus !== filterRetention) return false;
-                
-                if (data.artEnrollmentDate && data.artEnrollmentDate !== '---') {
-                    if (filterStart && data.artEnrollmentDate < filterStart) return false;
-                    if (filterDateEnd && data.artEnrollmentDate > filterDateEnd) return false;
-                } else if (filterStart || filterDateEnd) {
-                    return false;
+                // Compare case-insensitively and derive a status when older records lack vlStatus.
+                const vlStatus = normalizeFilterText(resolveRegistryVlStatus(data));
+                if (filterVl && vlStatus !== filterVl) return false;
+
+                // Some older documents store the ART outcome in demographics rather than registry.
+                const retentionStatus = normalizeFilterText(
+                    data.retentionStatus || demoData.outcome || demoData.retentionStatus || ''
+                );
+                if (filterRetention && retentionStatus !== filterRetention) return false;
+
+                // Enrollment date can exist in either the registry or demographics payload.
+                const enrollmentDate = String(
+                    data.artEnrollmentDate || data.artDate || demoData.artDate || ''
+                ).trim().slice(0, 10);
+
+                if (filterStart || filterDateEnd) {
+                    if (!enrollmentDate || enrollmentDate === '---') return false;
+                    if (filterStart && enrollmentDate < filterStart) return false;
+                    if (filterDateEnd && enrollmentDate > filterDateEnd) return false;
                 }
                 return true;
             });
 
-            document.getElementById('record-count').innerText = filteredRecords.length;
+            // Natural sorting keeps codes such as LAKAN-2 before LAKAN-10.
+            filteredRecords.sort((a, b) => {
+                const demoA = rawCachedDemographicsSnapshot.find(d => String(d.id) === String(a.id)) || {};
+                const demoB = rawCachedDemographicsSnapshot.find(d => String(d.id) === String(b.id)) || {};
+                const codeA = String(a.generated_serial_code || demoA.generated_serial_code || '').trim();
+                const codeB = String(b.generated_serial_code || demoB.generated_serial_code || '').trim();
+                if (!codeA && codeB) return 1;
+                if (codeA && !codeB) return -1;
+                return clientCodeSortDirection === 'asc'
+                    ? codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
+                    : codeB.localeCompare(codeA, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            const count = document.getElementById('record-count');
+            if (count) count.innerText = filteredRecords.length;
+
+            const sortButton = document.getElementById('sort-client-code');
+            const sortIcon = document.getElementById('sort-client-code-icon');
+            if (sortButton) sortButton.setAttribute('aria-sort', clientCodeSortDirection === 'asc' ? 'ascending' : 'descending');
+            if (sortIcon) sortIcon.textContent = clientCodeSortDirection === 'asc' ? '↑' : '↓';
 
             if (filteredRecords.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400 italic">No operational files matching active filters.</td></tr>`;
@@ -1247,18 +1297,18 @@
 
             filteredRecords.forEach((registryData) => {
                 const uic = registryData.id;
-                const demoData = rawCachedDemographicsSnapshot.find(d => d.id === uic) || {};
+                const demoData = rawCachedDemographicsSnapshot.find(d => String(d.id) === String(uic)) || {};
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50/80 transition-colors group";
-                
-                const isSuppressed = registryData.vlStatus === 'Suppressed';
+
+                const isSuppressed = normalizeFilterText(resolveRegistryVlStatus(registryData)) === 'suppressed';
                 const rawVlValue = registryData.vlValue ?? '---';
                 const rawCd4Value = registryData.latestCd4Count ?? '---';
 
                 let ohasisHtmlValueToken = '<span class="text-slate-300 italic">---</span>';
                 const resolvedUrlString = safeHttpUrl(demoData.ohasisUrl || registryData.ohasisUrl || '');
-                
+
                 if (resolvedUrlString) {
                     ohasisHtmlValueToken = `<a href="${escapeHtml(resolvedUrlString)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-extrabold hover:underline flex items-center gap-1"><i data-lucide="link" class="w-3 h-3"></i> OHASIS</a>`;
                 }
@@ -1266,22 +1316,26 @@
                 const resolvedLastName = demoData.lastName || '';
                 const resolvedFirstName = demoData.firstName || '';
                 const fullNameDisplayToken = (resolvedLastName || resolvedFirstName) ? `${resolvedFirstName} ${resolvedLastName}`.trim() : '---';
+                const resolvedClientCode = registryData.generated_serial_code || demoData.generated_serial_code || '---';
+                const resolvedEnrollmentDate = registryData.artEnrollmentDate || registryData.artDate || demoData.artDate || '---';
+                const resolvedVlStatus = resolveRegistryVlStatus(registryData);
+                const resolvedRetention = registryData.retentionStatus || demoData.outcome || demoData.retentionStatus || '---';
 
                 tr.innerHTML = `
                     <td class="py-2.5 px-4 font-mono">${ohasisHtmlValueToken}</td>
-                    <td class="py-2.5 px-4 font-mono text-slate-600">${escapeHtml(registryData.artEnrollmentDate || '---')}</td>
+                    <td class="py-2.5 px-4 font-mono text-slate-600">${escapeHtml(resolvedEnrollmentDate)}</td>
                     <td class="py-2.5 px-4 font-semibold text-slate-800">${escapeHtml(fullNameDisplayToken)}</td>
                     <td class="py-2.5 px-4 font-mono font-bold text-teal-600">${escapeHtml(uic)}</td>
-                    <td class="py-2.5 px-4 font-mono font-bold text-slate-700">${escapeHtml(registryData.generated_serial_code || '---')}</td>
+                    <td class="py-2.5 px-4 font-mono font-bold text-slate-700">${escapeHtml(resolvedClientCode)}</td>
                     <td class="py-2.5 px-4 font-mono text-slate-700 font-medium">${escapeHtml(rawVlValue)}</td>
                     <td class="py-2.5 px-4">
                         <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${isSuppressed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
-                            <span class="w-1 h-1 rounded-full ${isSuppressed ? 'bg-emerald-500' : 'bg-amber-500'}"></span>${escapeHtml(registryData.vlStatus || 'Unknown')}
+                            <span class="w-1 h-1 rounded-full ${isSuppressed ? 'bg-emerald-500' : 'bg-amber-500'}"></span>${escapeHtml(resolvedVlStatus)}
                         </span>
                     </td>
                     <td class="py-2.5 px-4 font-mono text-teal-700 font-bold">${escapeHtml(rawCd4Value)}</td>
                     <td class="py-2.5 px-4">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${registryData.retentionStatus === 'Active' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${escapeHtml(registryData.retentionStatus || '---')}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${normalizeFilterText(resolvedRetention) === 'active' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${escapeHtml(resolvedRetention)}</span>
                     </td>
                     <td class="py-2.5 px-4 font-mono text-slate-600">${escapeHtml(registryData.nextRefillDate || '---')}</td>
                     <td class="py-2.5 px-4 text-center space-x-1">
@@ -1550,6 +1604,13 @@
             document.getElementById('filter-retention').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-date-start').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-date-end').addEventListener('change', applyActiveRegistryFilters);
+            const clientCodeSortButton = document.getElementById('sort-client-code');
+            if (clientCodeSortButton) {
+                clientCodeSortButton.addEventListener('click', () => {
+                    clientCodeSortDirection = clientCodeSortDirection === 'asc' ? 'desc' : 'asc';
+                    applyActiveRegistryFilters();
+                });
+            }
         }
 
         function showDuplicateRecordWarning(duplicate, fallbackMessage) {
@@ -1729,6 +1790,14 @@
                 meta_counters_state: window.activeGeneratedMetaState || {}
             };
 
+            // Determine creation from the actual loaded record, not only the UI mode.
+            // Existing records keep their original UIC in currentClient even while the
+            // user switches between view/edit mode, so editing must never be flagged as
+            // a new-record creation for the duplicate-UIC guard.
+            const existingRecordUic = String(currentClient && currentClient.uic || '').trim().toUpperCase();
+            const isEditingExistingRecord = Boolean(existingRecordUic);
+            const shouldTreatAsNewRecord = Boolean(isNewRecordMode && !isEditingExistingRecord);
+
             try {
                 const response = await secureArtFetch('/api/art/client', {
                     method: 'POST',
@@ -1737,7 +1806,7 @@
                         demographics: demographicPayload,
                         registry: registryPayload,
                         meta_counters_state: window.activeGeneratedMetaState || {},
-                        is_new_record: isNewRecordMode
+                        is_new_record: shouldTreatAsNewRecord
                     })
                 });
 
