@@ -54,7 +54,7 @@
     </form>
 
     <div class="border-t border-slate-100 pt-4 text-center">
-        <span class="text-[10px] font-bold tracking-widest text-slate-400 uppercase font-mono">JBT</span>
+        <span class="text-[10px] font-bold tracking-widest text-slate-400 uppercase font-mono">For the use of LAKAN Network Only</span>
     </div>
 </div>
 
@@ -164,17 +164,17 @@ async function connectToFacilityNode(email) {
 
         const label = document.getElementById("facility-sub-label");
         if (label && configData.facility_name) {
-            label.textContent = `Node Connected: ${configData.facility_name}`;
+            label.textContent = `Facility Detected: ${configData.facility_name}`;
         }
 
-        displayStatus(`Facility node detected: ${configData.facility_name || currentFacilityId}`, "success");
+        displayStatus(`Facility detected: ${configData.facility_name || currentFacilityId}`, "success");
         setTimeout(hideStatus, 1800);
         return true;
     } catch (error) {
         currentFacilityConfig = null;
         auth = null;
         firebaseApp = null;
-        displayStatus("Unable to initialize the facility authentication node.");
+        displayStatus("Unable to initialize the facility authentication.");
         return false;
     }
 }

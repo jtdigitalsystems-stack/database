@@ -58,7 +58,7 @@
                     <div>
                         <select id="filter-retention" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
                             <option value="">All Retention Outcomes</option>
-                            <option value="Active">Active</option>
+                            <option value="Alive on ART">Alive on ART</option>
                             <option value="LTFU">LTFU</option>
                             <option value="Deceased">Deceased</option>
                             <option value="Trans-out">Trans-out</option>
@@ -375,14 +375,22 @@
                                                 <option value="Referred">Referred</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label class="text-[10px] uppercase font-bold text-slate-500 block">ART Outcome</label>
-                                            <select id="input-outcome" onchange="window.toggleConditionalFields()" class="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:border-teal-500 focus:outline-none">
-                                                <option value="Active">Active</option>
-                                                <option value="LTFU">LTFU</option>
-                                                <option value="Deceased">Deceased</option>
-                                                <option value="Trans-out">Trans-out</option>
-                                            </select>
+                                        <div class="col-span-2">
+                                            <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">ART Outcome <span class="normal-case font-medium text-slate-400">(automatically determined)</span></label>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <select id="input-outcome" aria-label="ART Outcome" disabled class="flex-1 min-w-[150px] bg-slate-100 border border-slate-300 rounded p-1.5 text-xs font-bold text-slate-700 cursor-not-allowed">
+                                                    <option value="Alive on ART">Alive on ART</option>
+                                                    <option value="LTFU">LTFU</option>
+                                                    <option value="Deceased">Deceased</option>
+                                                    <option value="Trans-out">Trans-out</option>
+                                                </select>
+                                                <label class="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-xs font-bold text-rose-700 cursor-pointer select-none">
+                                                    <input type="checkbox" id="input-mark-deceased" onchange="window.handleOutcomeTick('Deceased', this.checked)" class="h-4 w-4 accent-rose-600"> Deceased
+                                                </label>
+                                                <label class="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs font-bold text-amber-700 cursor-pointer select-none">
+                                                    <input type="checkbox" id="input-mark-transout" onchange="window.handleOutcomeTick('Trans-out', this.checked)" class="h-4 w-4 accent-amber-600"> Trans-out
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1039,6 +1047,31 @@
             }
         }
 
+        function handleOutcomeTick(outcome, checked) {
+            const deceasedTick = document.getElementById('input-mark-deceased');
+            const transoutTick = document.getElementById('input-mark-transout');
+            const outcomeDropdown = document.getElementById('input-outcome');
+            if (!deceasedTick || !transoutTick || !outcomeDropdown) return;
+
+            // The tick controls are mutually exclusive. Deceased has highest precedence.
+            if (outcome === 'Deceased' && checked) transoutTick.checked = false;
+            if (outcome === 'Trans-out' && checked) deceasedTick.checked = false;
+
+            if (deceasedTick.checked) outcomeDropdown.value = 'Deceased';
+            else if (transoutTick.checked) outcomeDropdown.value = 'Trans-out';
+            else if (outcomeDropdown.value === 'Deceased' || outcomeDropdown.value === 'Trans-out') {
+                outcomeDropdown.value = 'Alive on ART';
+            }
+            toggleConditionalFields();
+        }
+
+        function syncOutcomeTicks(outcome) {
+            const deceasedTick = document.getElementById('input-mark-deceased');
+            const transoutTick = document.getElementById('input-mark-transout');
+            if (deceasedTick) deceasedTick.checked = outcome === 'Deceased';
+            if (transoutTick) transoutTick.checked = outcome === 'Trans-out';
+        }
+
         function toggleConditionalFields() {
             const inception = document.getElementById('input-inception').value;
             const outcome = document.getElementById('input-outcome').value;
@@ -1057,10 +1090,10 @@
 
             const outDiv = document.getElementById('cond-outcome');
             if (outDiv) {
-                outDiv.classList.toggle('hidden', outcome === 'Active' || outcome === 'LTFU');
+                outDiv.classList.toggle('hidden', outcome === 'Alive on ART' || outcome === 'Active' || outcome === 'LTFU');
                 if (outcome === 'Deceased') {
                     document.getElementById('lbl-out-date').innerText = 'Date of Death';
-                    document.getElementById('lbl-out-to').innerText = 'Cause / Notes';
+                    document.getElementById('lbl-out-to').innerText = 'Cause of Death';
                 } else if (outcome === 'Trans-out') {
                     document.getElementById('lbl-out-date').innerText = 'Trans-out Date';
                     document.getElementById('lbl-out-to').innerText = 'Trans-out To';
@@ -1486,7 +1519,8 @@
             document.getElementById('input-philhealth').value = data.philhealthNumber || '';
             
             document.getElementById('input-inception').value = data.inception || 'OPD';
-            document.getElementById('input-outcome').value = data.outcome || 'Active';
+            document.getElementById('input-outcome').value = (data.outcome === 'Active' || !data.outcome) ? 'Alive on ART' : data.outcome;
+            syncOutcomeTicks(document.getElementById('input-outcome').value);
             document.getElementById('input-inc-date').value = data.incDate || '';
             document.getElementById('input-inc-from').value = data.incFrom || '';
             document.getElementById('input-out-date').value = data.outDate || '';
@@ -2182,6 +2216,8 @@
 
             const outcomeDropdown = document.getElementById('input-outcome');
             const isExceptionalOutcome = outcomeDropdown && ['Deceased', 'Trans-out'].includes(outcomeDropdown.value);
+            if (outcomeDropdown && document.getElementById('input-mark-deceased')?.checked) outcomeDropdown.value = 'Deceased';
+            else if (outcomeDropdown && document.getElementById('input-mark-transout')?.checked) outcomeDropdown.value = 'Trans-out';
 
             if (remainingPills >= 1) {
                 badge.className = "text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-emerald-50 text-emerald-700 border border-emerald-200";
@@ -2192,7 +2228,7 @@
                 // Keep the ART Outcome dropdown synchronized with the refill status.
                 // Only reverse an automatically assigned LTFU; preserve Deceased/Trans-out.
                 if (outcomeDropdown && outcomeDropdown.value === 'LTFU') {
-                    outcomeDropdown.value = 'Active';
+                    outcomeDropdown.value = 'Alive on ART';
                     if (window.toggleConditionalFields) window.toggleConditionalFields();
                 }
             } else {
@@ -2216,7 +2252,7 @@
 
                     // A client within the 30-day grace period is not yet LTFU.
                     if (outcomeDropdown && outcomeDropdown.value === 'LTFU') {
-                        outcomeDropdown.value = 'Active';
+                        outcomeDropdown.value = 'Alive on ART';
                         if (window.toggleConditionalFields) window.toggleConditionalFields();
                     }
                 }
@@ -2250,6 +2286,7 @@
         window.toggleEditMode = toggleEditMode;
         window.toggleConfirmatoryFields = toggleConfirmatoryFields;
         window.toggleConditionalFields = toggleConditionalFields;
+        window.handleOutcomeTick = handleOutcomeTick;
         window.toggleProphylaxisFields = toggleProphylaxisFields;
         window.toggleTbFields = toggleTbFields;
         window.toggleOIContainer = toggleOIContainer;
