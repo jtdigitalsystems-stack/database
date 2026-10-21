@@ -40,12 +40,24 @@ if not FLASK_SECRET_KEY:
     raise RuntimeError("FLASK_SECRET_KEY environment variable is required.")
 
 app.secret_key = FLASK_SECRET_KEY
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "success": False,
+            "error": "Request body is too large. Reduce the import batch size and try again."
+        }), 413
+    return "Request body is too large.", 413
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_REFRESH_EACH_REQUEST=True,
-    MAX_CONTENT_LENGTH=16 * 1024,
+    # Bulk ART/PrEP imports contain nested JSON and clinical history logs.
+    # Keep a bounded request limit, configurable per deployment (default 16 MiB).
+    MAX_CONTENT_LENGTH=int(os.getenv("MAX_CONTENT_LENGTH", str(16 * 1024 * 1024))),
 )
 
 PENDING_LOGIN_TTL = 300
