@@ -1,95 +1,370 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Data Central | Reports & Analytics</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    :root{--ink:#172033;--muted:#667085;--line:#e5eaf0;--bg:#f5f7fb;--card:#fff;--teal:#0f8b8d;--teal-soft:#e7f7f5;--blue:#3b82f6;--rose:#e05260;--amber:#c98212;--shadow:0 8px 24px rgba(23,32,51,.055)}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}button{cursor:pointer}.shell{max-width:1440px;margin:auto;padding:26px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand{display:flex;align-items:center;gap:13px}.logo{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:var(--teal);color:white;font-weight:900;font-size:21px;box-shadow:0 6px 14px #0f8b8d2b}.eyebrow{margin:0 0 3px;font-size:11px;letter-spacing:.16em;font-weight:850;color:var(--teal);text-transform:uppercase}.title{margin:0;font-size:clamp(22px,3vw,30px);letter-spacing:-.035em}.sub{margin:5px 0 0;color:var(--muted);font-size:13px}.top-actions{display:flex;gap:9px;flex-wrap:wrap}.btn{border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:white;color:var(--ink);font-size:13px;font-weight:750}.btn.primary{background:var(--teal);border-color:var(--teal);color:white}.btn:hover{filter:brightness(.98);transform:translateY(-1px)}.filters{display:grid;grid-template-columns:1.1fr 1.1fr 1fr 1fr auto;gap:12px;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);margin-bottom:18px}.field label{display:block;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:0 0 7px}.field input,.field select{width:100%;min-height:40px;border:1px solid #d8e0e8;border-radius:9px;background:#fff;padding:8px 10px;color:var(--ink);outline:none}.field input:focus,.field select:focus{border-color:var(--teal);box-shadow:0 0 0 3px #0f8b8d1a}.filter-action{display:flex;align-items:end}.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:18px}.kpi,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.kpi{padding:17px;min-height:128px}.kpi-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px;font-weight:750}.kpi-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--teal-soft);color:var(--teal);font-weight:900}.value{margin:14px 0 4px;font-size:clamp(25px,3vw,33px);font-weight:850;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.hint{font-size:11px;color:var(--muted)}.charts{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:18px}.panel-head{padding:17px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-head h2{font-size:14px;margin:0;font-weight:850}.panel-head p{font-size:11px;color:var(--muted);margin:5px 0 0}.panel-body{padding:17px 19px}.chart-wrap{height:260px;position:relative}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:var(--teal-soft);color:#087878;padding:6px 9px;font-size:10px;font-weight:850;white-space:nowrap}.legend-note{font-size:11px;color:var(--muted);margin-top:10px}.table-panel{overflow:hidden}.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:800px;font-size:12px}thead{background:#f8fafc}th{font-size:10px;letter-spacing:.065em;text-transform:uppercase;color:#657186;text-align:left;font-weight:850;white-space:nowrap}th,td{padding:13px 15px;border-bottom:1px solid #edf0f4}td{font-variant-numeric:tabular-nums}tbody tr:hover{background:#f9fbfc}.num{text-align:right}.rate{display:inline-block;padding:5px 8px;border-radius:7px;background:#f0f9ff;color:#1769aa;font-weight:800}.status{font-size:10px;font-weight:850;color:#8a5b09;background:#fff7e6;padding:5px 8px;border-radius:7px}.empty{padding:35px;text-align:center;color:var(--muted)}.foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px;color:#8a94a6;font-size:11px}.notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:0 0 18px;background:#fff8e8;border:1px solid #f3dfae;color:#76510a;border-radius:12px;font-size:12px;line-height:1.5}.notice strong{white-space:nowrap}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    @media(max-width:1050px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{align-items:center}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.charts{grid-template-columns:1fr}}
-    @media(max-width:640px){.shell{padding:16px}.topbar{align-items:flex-start;flex-direction:column}.top-actions{width:100%}.top-actions .btn{flex:1}.filters{grid-template-columns:1fr 1fr;padding:12px}.kpis{grid-template-columns:1fr 1fr;gap:10px}.kpi{padding:13px;min-height:116px}.kpi:last-child{grid-column:span 2}.value{font-size:26px}.filter-action .btn{width:100%}.panel-head,.panel-body{padding:14px}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ART Treatment Monitoring Report</title>
+<style>
+:root{--ink:#182230;--muted:#667085;--line:#e4e7ec;--bg:#f5f7fb;--navy:#142b4a;--blue:#2764e7;--teal:#087e8b;--red:#b42318;--amber:#b54708;--green:#067647;--card:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{background:linear-gradient(120deg,#142b4a,#1f497d);color:#fff;padding:25px clamp(16px,4vw,44px)}
+.header-row{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}h1{font-size:clamp(23px,3vw,32px);margin:0 0 5px}header p{margin:0;color:#d8e4f5}.header-actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{border:1px solid #d0d5dd;background:#fff;color:#344054;border-radius:9px;padding:9px 13px;font-weight:650;cursor:pointer}button.primary{background:var(--blue);border-color:var(--blue);color:#fff}button:disabled{opacity:.55;cursor:wait}
+main{max-width:1500px;margin:auto;padding:22px clamp(12px,3vw,34px) 40px}
+.status{padding:11px 14px;border:1px solid var(--line);background:#fff;border-radius:10px;margin-bottom:16px;color:var(--muted)}.status.error{color:var(--red);border-color:#fecdca;background:#fff6f5}.status.ok{color:var(--green)}
+.toolbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap;padding:15px;background:#fff;border:1px solid var(--line);border-radius:13px;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:155px}.field label{font-size:12px;font-weight:700;color:#475467}.field input,.field select{font:inherit;padding:9px 10px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:var(--ink)}
+.metric-group{margin:0 0 18px}.group-title{font-size:12px;letter-spacing:.12em;color:#475467;font-weight:850;margin:0 0 9px;padding-left:2px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:0}
+.metric{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:17px;min-height:110px;box-shadow:0 1px 2px #1018280a}.metric .label{font-size:12px;color:var(--muted);font-weight:700}.metric .number{font-size:30px;font-weight:800;letter-spacing:-.8px;margin:5px 0}.metric .hint{font-size:12px;color:var(--muted)}
+.section{background:#fff;border:1px solid var(--line);border-radius:13px;margin:16px 0;overflow:hidden}.section-head{padding:15px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.section-head h2{font-size:16px;margin:0}.section-head p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:800px}th,td{text-align:left;padding:11px 13px;border-bottom:1px solid #eef0f3;vertical-align:top}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#667085;background:#f9fafb;white-space:nowrap}td{font-size:13px}tbody tr:hover{background:#f8fbff}.empty{text-align:center;padding:26px;color:var(--muted)}
+.pill{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:750;white-space:nowrap;background:#f2f4f7;color:#344054}.pill.red{background:#fee4e2;color:#b42318}.pill.amber{background:#fef0c7;color:#93370d}.pill.green{background:#dcfae6;color:#05603a}.pill.blue{background:#dbeafe;color:#1d4ed8}
+.progress{height:8px;background:#eaecf0;border-radius:99px;overflow:hidden;min-width:100px}.progress span{display:block;height:100%;background:var(--blue);border-radius:99px}
+.two-col{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}.chart{padding:18px}.bar-row{display:grid;grid-template-columns:130px 1fr 44px;align-items:center;gap:10px;margin:13px 0}.bar-label{font-size:12px;color:#475467}.bar-track{height:11px;background:#eef2f6;border-radius:99px;overflow:hidden}.bar-fill{height:100%;background:#2764e7;border-radius:99px}.bar-value{text-align:right;font-weight:750;font-variant-numeric:tabular-nums}
+.footer-note{font-size:12px;color:var(--muted);padding:0 2px}.hide{display:none!important}
+@media(max-width:900px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.two-col{grid-template-columns:1fr}}
+@media(max-width:520px){.cards{grid-template-columns:1fr 1fr}.metric{padding:13px}.metric .number{font-size:25px}.bar-row{grid-template-columns:95px 1fr 35px;gap:7px}}
+@media print{body{background:#fff}.header-actions,.toolbar button{display:none!important}header{background:#fff!important;color:#111;padding:10px 0;border-bottom:2px solid #222}header p{color:#444}main{padding:12px 0}.section,.metric,.toolbar{break-inside:avoid;box-shadow:none}.table-wrap{overflow:visible}table{min-width:0}th,td{padding:6px;font-size:10px}.cards{grid-template-columns:repeat(4,1fr)}}
+</style>
 </head>
 <body>
-<div class="shell">
-  <header class="topbar">
-    <div class="brand"><div class="logo" aria-hidden="true">DC</div><div><p class="eyebrow">Data Central</p><h1 class="title">Reports &amp; Analytics</h1><p class="sub">Community-Based Testing (CBS) · Performance overview</p></div></div>
-    <div class="top-actions"><button class="btn" id="resetBtn" type="button">Reset filters</button><button class="btn primary" id="exportBtn" type="button">Export CSV ↓</button></div>
-  </header>
-
-  <div class="notice" role="note"><strong>Preview mode</strong><span>This is a regenerated HTML dashboard using illustrative sample records so you can review the layout and calculations. It is not yet connected to live Firestore data; the Flask reports page currently renders <code>reports.html</code> without supplying a reporting dataset.</span></div>
-
-  <section class="filters" aria-label="Report filters">
-    <div class="field"><label for="dateFrom">Date from</label><input id="dateFrom" type="date" value="2026-10-01"></div>
-    <div class="field"><label for="dateTo">Date to</label><input id="dateTo" type="date" value="2026-10-31"></div>
-    <div class="field"><label for="venueFilter">Venue</label><select id="venueFilter"><option value="all">All venues</option><option>Park</option><option>School</option><option>Pageant</option><option>BPO</option><option>Other</option></select></div>
-    <div class="field"><label for="modalityFilter">Reporting view</label><select id="modalityFilter"><option value="all">All CBS activities</option><option value="KP">Key populations (KP)</option><option value="nonKP">Non-KP</option></select></div>
-    <div class="filter-action"><button class="btn primary" id="applyBtn" type="button">Apply filters</button></div>
+<header>
+  <div class="header-row">
+    <div><h1>ART Treatment Monitoring Report</h1><p id="subtitle">Facility-level retention, refill monitoring, and treatment outcomes</p></div>
+    <div class="header-actions"><button id="refreshBtn" class="primary" type="button">↻ Refresh data</button><button type="button" id="printBtn">Print / Save PDF</button><button type="button" id="csvBtn">Export filtered CSV</button></div>
+  </div>
+</header>
+<main>
+  <div id="status" class="status">Connecting to your authenticated facility database…</div>
+  <section class="toolbar" aria-label="Report filters">
+    <div class="field"><label for="asOf">Report as of</label><input id="asOf" type="date"></div>
+    <div class="field"><label for="outcomeFilter">Treatment outcome</label><select id="outcomeFilter"><option value="">All outcomes</option><option value="alive">Alive on ART / Active</option><option value="deceased">Deceased / Died</option><option value="ltfu">LTFU</option><option value="transout">Transferred out</option><option value="stopped">Stopped treatment</option><option value="other">Other / unknown</option></select></div>
+    <div class="field"><label for="refillFilter">Refill monitoring</label><select id="refillFilter"><option value="">All refill statuses</option><option value="pastdue">Past due</option><option value="thisweek">Due this week</option><option value="nextweek">Due next week</option><option value="nodate">No refill date</option></select></div>
+    <div class="field" style="flex:1;min-width:210px"><label for="searchInput">Search client / UIC / client code</label><input id="searchInput" type="search" placeholder="Type to search…"></div>
+    <button id="resetBtn" type="button">Reset filters</button>
   </section>
 
-  <section class="kpis" aria-label="Key performance indicators">
-    <article class="kpi"><div class="kpi-top"><span>Total tested</span><span class="kpi-icon">T</span></div><div class="value" id="kpiTested">—</div><div class="hint">Unique activity-level testing counts</div></article>
-    <article class="kpi"><div class="kpi-top"><span>Reactive</span><span class="kpi-icon" style="background:#fff0f1;color:var(--rose)">R</span></div><div class="value" id="kpiReactive">—</div><div class="hint">Reported reactive results</div></article>
-    <article class="kpi"><div class="kpi-top"><span>Reactivity rate</span><span class="kpi-icon" style="background:#fff5e5;color:var(--amber)">%</span></div><div class="value" id="kpiRate">—</div><div class="hint">Reactive ÷ tested</div></article>
-    <article class="kpi"><div class="kpi-top"><span>KP tested</span><span class="kpi-icon" style="background:#eef4ff;color:var(--blue)">KP</span></div><div class="value" id="kpiKP">—</div><div class="hint">MSM + TGW + other KP fields, where available</div></article>
-    <article class="kpi"><div class="kpi-top"><span>PrEP count</span><span class="kpi-icon">P</span></div><div class="value" id="kpiPrep">—</div><div class="hint">PrEP service counts recorded per activity</div></article>
+  <section class="metric-group">
+    <h2 class="group-title">ART STATUS</h2>
+    <div class="cards" id="artMetrics">
+      <div class="metric"><div class="label">Alive on ART</div><div class="number" id="m-alive">—</div><div class="hint" id="m-due-hint">Due: —</div></div>
+      <div class="metric"><div class="label">LTFU</div><div class="number" id="m-ltfu">—</div><div class="hint">More than 30 days past medication run-out</div></div>
+      <div class="metric"><div class="label">Deceased</div><div class="number" id="m-deceased">—</div><div class="hint">Death recorded by report date</div></div>
+      <div class="metric"><div class="label">Transout</div><div class="number" id="m-transout">—</div><div class="hint">Transferred out of the facility</div></div>
+    </div>
+  </section>
+  <section class="metric-group">
+    <h2 class="group-title">REFILL</h2>
+    <div class="cards" id="refillMetrics">
+      <div class="metric"><div class="label">Past Due</div><div class="number" id="m-pastdue">—</div><div class="hint">Run-out date before report date</div></div>
+      <div class="metric"><div class="label">Due This Week</div><div class="number" id="m-thisweek">—</div><div class="hint">Monday–Sunday of report date</div></div>
+      <div class="metric"><div class="label">Due Next Week</div><div class="number" id="m-nextweek">—</div><div class="hint">Following Monday–Sunday</div></div>
+    </div>
+  </section>
+  <section class="metric-group">
+    <h2 class="group-title">VL CASCADE</h2>
+    <div class="cards" id="vlMetrics">
+      <div class="metric"><div class="label">VL Eligible</div><div class="number" id="m-vl-eligible">—</div><div class="hint">Alive on ART and due for VL under the reference rules</div></div>
+      <div class="metric"><div class="label">VL Tested</div><div class="number" id="m-vl-tested">—</div><div class="hint">Unique alive-on-ART clients with VL in the past 12 months</div></div>
+      <div class="metric"><div class="label">VL Tested Among Eligible</div><div class="number" id="m-vl-tested-eligible">—</div><div class="hint">Eligible clients with a qualifying VL test</div></div>
+    </div>
+  </section>
+  <section class="metric-group">
+    <h2 class="group-title">VL STATUS</h2>
+    <div class="cards" id="vlStatusMetrics">
+      <div class="metric"><div class="label">Not Suppressed</div><div class="number" id="m-not-suppressed">—</div><div class="hint">VL ≥ 1,000 copies/mL</div></div>
+      <div class="metric"><div class="label">Suppressed</div><div class="number" id="m-suppressed">—</div><div class="hint">VL below 1,000 copies/mL</div></div>
+      <div class="metric"><div class="label">Undetectable</div><div class="number" id="m-undetectable">—</div><div class="hint">Subgroup of suppressed: VL ≤ 50 copies/mL</div></div>
+    </div>
   </section>
 
-  <section class="charts">
-    <article class="panel"><div class="panel-head"><div><h2>Testing volume by date</h2><p>Tested and reactive counts across the selected period</p></div><span class="pill">TREND</span></div><div class="panel-body"><div class="chart-wrap"><canvas id="trendChart" aria-label="Testing volume trend chart"></canvas></div><p class="legend-note">Daily values are derived from the sample activity rows below.</p></div></article>
-    <article class="panel"><div class="panel-head"><div><h2>Tests by venue</h2><p>Distribution of reported testing volume</p></div><span class="pill">VENUE MIX</span></div><div class="panel-body"><div class="chart-wrap"><canvas id="venueChart" aria-label="Tests by venue chart"></canvas></div><p class="legend-note">Venue totals follow the active filters.</p></div></article>
+  <div class="two-col">
+    <section class="section">
+      <div class="section-head"><div><h2>Refill monitoring overview</h2><p>Counts are calculated from the current active ART registry records.</p></div></div>
+      <div class="chart" id="refillChart"></div>
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h2>Treatment outcome distribution</h2><p>Uses retentionStatus first, then demographics outcome.</p></div></div>
+      <div class="chart" id="outcomeChart"></div>
+    </section>
+  </div>
+
+  <section class="section">
+    <div class="section-head"><div><h2>Refill follow-up list</h2><p>Past due, due this week, due next week, and clients without a usable refill date.</p></div><span class="pill blue" id="refillCount">0 clients</span></div>
+    <div class="table-wrap"><table><thead><tr><th>UIC</th><th>Client name</th><th>Client code</th><th>Treatment outcome</th><th>Refill status</th><th>Next refill / run-out</th><th>Dispense date</th><th>Days from report date</th></tr></thead><tbody id="refillRows"><tr><td colspan="8" class="empty">Waiting for registry data…</td></tr></tbody></table></div>
   </section>
 
-  <section class="panel table-panel">
-    <div class="panel-head"><div><h2>CBS activity details</h2><p id="rowCount">Showing sample activity records</p></div><span class="pill">ACTIVITY REGISTER</span></div>
-    <div class="table-scroll"><table><thead><tr><th>Date</th><th>Activity title</th><th>Venue</th><th class="num">Male tested</th><th class="num">Female tested</th><th class="num">MSM tested</th><th class="num">TGW tested</th><th class="num">Total tested</th><th class="num">Reactive</th><th class="num">Reactivity</th><th class="num">PrEP</th></tr></thead><tbody id="activityRows"></tbody></table></div>
-    <div id="emptyState" class="empty" hidden>No activities match the selected filters.</div>
+  <section class="section">
+    <div class="section-head"><div><h2>Client-level ART registry</h2><p>Filtered view of the records returned by the secure ART registry endpoint.</p></div><span class="pill" id="registryCount">0 records</span></div>
+    <div class="table-wrap"><table><thead><tr><th>UIC</th><th>Client name</th><th>Client code</th><th>ART enrollment</th><th>ART outcome</th><th>Retention status</th><th>VL status</th><th>VL value</th><th>Latest CD4</th><th>Next refill</th></tr></thead><tbody id="registryRows"><tr><td colspan="10" class="empty">Waiting for registry data…</td></tr></tbody></table></div>
   </section>
-  <footer class="foot"><span>Data Central · Reports &amp; Analytics</span><span id="updatedLabel">Preview generated October 2026 · Sample data only</span></footer>
-</div>
+  <p class="footer-note">VL cascade follows the reference logic from vl.html: unique clients, VL testing within the rolling 12-month window, alive-on-ART only; undetectable is a subset of suppressed and means ≤50 copies/mL. Data source: authenticated facility endpoint <code>/api/art/registry</code>. This page does not query Firebase directly or accept a facility ID from the browser. Confirm the definitions of local outcome and refill-date fields with your facility before using this report for official submission.</p>
+</main>
 <script>
-  // Illustrative preview data only. Replace this array with a server-provided dataset/API response for production use.
-  const activities = [
-    {date:'2026-10-03',title:'Community Outreach — Park',venue:'Park',male:18,female:6,msm:15,tgw:3,reactive:1,prep:7,kp:18},
-    {date:'2026-10-08',title:'Campus Health Activity',venue:'School',male:12,female:14,msm:7,tgw:1,reactive:0,prep:5,kp:8},
-    {date:'2026-10-12',title:'Community Pageant Outreach',venue:'Pageant',male:24,female:9,msm:20,tgw:4,reactive:2,prep:11,kp:24},
-    {date:'2026-10-16',title:'Workplace Wellness Activity',venue:'BPO',male:17,female:11,msm:12,tgw:2,reactive:1,prep:8,kp:14},
-    {date:'2026-10-21',title:'Barangay Community Testing',venue:'Other',male:21,female:8,msm:16,tgw:2,reactive:1,prep:9,kp:18},
-    {date:'2026-10-27',title:'Evening Outreach — Park',venue:'Park',male:14,female:5,msm:11,tgw:2,reactive:0,prep:6,kp:13}
-  ];
-  let trendChart, venueChart;
+(() => {
+  "use strict";
   const $ = id => document.getElementById(id);
-  const fmt = n => Number(n||0).toLocaleString('en-US');
-  const pct = (n,d) => d ? (n/d*100).toFixed(1)+'%' : '0.0%';
-  function filteredRows(){
-    const from=$('dateFrom').value, to=$('dateTo').value, venue=$('venueFilter').value, view=$('modalityFilter').value;
-    return activities.filter(a => (!from||a.date>=from)&&(!to||a.date<=to)&&(venue==='all'||a.venue===venue)&&(view==='all'||(view==='KP'?a.kp>0:a.kp<a.male+a.female+a.msm+a.tgw)));
-  }
-  function sum(rows,key){return rows.reduce((n,r)=>n+(Number(r[key])||0),0)}
-  function render(){
-    const rows=filteredRows();
-    const tested=sum(rows,'male')+sum(rows,'female')+sum(rows,'msm')+sum(rows,'tgw');
-    const reactive=sum(rows,'reactive');
-    $('kpiTested').textContent=fmt(tested); $('kpiReactive').textContent=fmt(reactive); $('kpiRate').textContent=pct(reactive,tested); $('kpiKP').textContent=fmt(sum(rows,'kp')); $('kpiPrep').textContent=fmt(sum(rows,'prep'));
-    $('rowCount').textContent=`${rows.length} sample activit${rows.length===1?'y':'ies'} · filtered result`;
-    $('activityRows').innerHTML=rows.map(a=>{const t=a.male+a.female+a.msm+a.tgw;return `<tr><td>${a.date}</td><td><strong>${escapeHtml(a.title)}</strong></td><td>${escapeHtml(a.venue)}</td><td class="num">${fmt(a.male)}</td><td class="num">${fmt(a.female)}</td><td class="num">${fmt(a.msm)}</td><td class="num">${fmt(a.tgw)}</td><td class="num"><strong>${fmt(t)}</strong></td><td class="num">${fmt(a.reactive)}</td><td class="num"><span class="rate">${pct(a.reactive,t)}</span></td><td class="num">${fmt(a.prep)}</td></tr>`}).join('');
-    $('emptyState').hidden=rows.length>0;
-    const dayMap={}; rows.forEach(a=>{dayMap[a.date]??={tested:0,reactive:0};dayMap[a.date].tested+=a.male+a.female+a.msm+a.tgw;dayMap[a.date].reactive+=a.reactive});
-    const days=Object.keys(dayMap).sort();
-    if(trendChart)trendChart.destroy(); if(venueChart)venueChart.destroy();
-    if(window.Chart){
-      trendChart=new Chart($('trendChart'),{type:'line',data:{labels:days.map(d=>d.slice(5)),datasets:[{label:'Tested',data:days.map(d=>dayMap[d].tested),borderColor:'#0f8b8d',backgroundColor:'#0f8b8d22',fill:true,tension:.32,borderWidth:2.5,pointRadius:3},{label:'Reactive',data:days.map(d=>dayMap[d].reactive),borderColor:'#e05260',backgroundColor:'#e0526022',fill:false,tension:.32,borderWidth:2.5,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11}}}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{precision:0}}}}});
-      const venueTotals={}; rows.forEach(a=>{venueTotals[a.venue]=(venueTotals[a.venue]||0)+a.male+a.female+a.msm+a.tgw});
-      venueChart=new Chart($('venueChart'),{type:'doughnut',data:{labels:Object.keys(venueTotals),datasets:[{data:Object.values(venueTotals),backgroundColor:['#0f8b8d','#3b82f6','#eab308','#8b5cf6','#e05260'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,font:{size:11}}}}}});
+  let allRecords = [];
+  let facilityName = "";
+  const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
+  $("asOf").value = todayISO();
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const text = (obj, keys, fallback="") => {
+    for (const k of keys) {
+      const v = obj && obj[k];
+      if (v !== undefined && v !== null && String(v).trim() !== "" && String(v).trim() !== "---") return String(v).trim();
     }
+    return fallback;
+  };
+  const parseDate = value => {
+    if (!value) return null;
+    const s = String(value).trim().slice(0,10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    const d = new Date(s+"T00:00:00");
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const iso = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}` : "";
+  const dayDiff = (a,b) => Math.round((a.getTime()-b.getTime())/86400000);
+  const plusDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+  const weekBounds = date => {
+    const monday = new Date(date); monday.setHours(0,0,0,0);
+    const dow = (monday.getDay()+6)%7; monday.setDate(monday.getDate()-dow);
+    return {start:monday,end:plusDays(monday,6)};
+  };
+  const norm = s => String(s || "").trim().toLowerCase().replace(/[_-]+/g," ").replace(/\s+/g," ");
+  function outcomeOf(d,r) {
+    const raw = norm(text(r,["retentionStatus"],text(d,["outcome","retentionStatus","artStatus"],"Unknown")));
+    if (/(stop|discontinu|ceased treatment)/.test(raw)) return "Stopped treatment";
+    if (/(deceased|died|death)/.test(raw)) return "Deceased / Died";
+    if (/(transferred out|transfer out|trans out|trans-out|transout)/.test(raw)) return "Transferred out";
+    if (/(ltfu|lost to follow|lost-to-follow)/.test(raw)) return "LTFU";
+    if (/(alive on art|active|alive|on art)/.test(raw)) return "Alive on ART / Active";
+    if (/(transfer in|transferred in|trans-in)/.test(raw)) return "Transferred in";
+    return raw && raw !== "unknown" ? text(r,["retentionStatus"],text(d,["outcome","retentionStatus","artStatus"],"Other / unknown")) : "Other / unknown";
   }
-  function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function exportCSV(){const rows=filteredRows();const head=['Date','Activity Title','Venue','Male Tested','Female Tested','MSM Tested','TGW Tested','Total Tested','Reactive','Reactivity Rate','PrEP Count'];const data=rows.map(a=>{const t=a.male+a.female+a.msm+a.tgw;return [a.date,a.title,a.venue,a.male,a.female,a.msm,a.tgw,t,a.reactive,pct(a.reactive,t),a.prep]});const csv=[head,...data].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='data-central-cbs-report.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
-  $('applyBtn').addEventListener('click',render); ['dateFrom','dateTo','venueFilter','modalityFilter'].forEach(id=>$(id).addEventListener('change',render));
-  $('resetBtn').addEventListener('click',()=>{$('dateFrom').value='2026-10-01';$('dateTo').value='2026-10-31';$('venueFilter').value='all';$('modalityFilter').value='all';render()});
-  $('exportBtn').addEventListener('click',exportCSV); render();
+  function recordOf(item) {
+    const d = item.demographics && typeof item.demographics==="object" ? item.demographics : {};
+    const r = item.registry && typeof item.registry==="object" ? item.registry : {};
+    const uic = text(item,["id","uic"],"");
+    const name = [text(d,["lastName"]),text(d,["firstName"]),text(d,["middleName"]),text(d,["suffix"])].filter(Boolean).join(", ").replace(/, ([^,]+)$/," $1").trim() || "Name not recorded";
+    const outcome = outcomeOf(d,r);
+    const nextRefill = parseDate(text(r,["nextRefillDate","runOutDate"],text(d,["nextRefillDate","runOutDate"])));
+    const dispenseDate = parseDate(text(d,["dispenseDate"],text(r,["dispenseDate"])));
+    const clientCode = text(d,["generated_serial_code"],text(r,["generated_serial_code"],"—"));
+    return {
+      raw:item, d,r,uic,name,clientCode,outcome,
+      enrollment:text(r,["artEnrollmentDate"],text(d,["artDate","incDate"],"")),
+      retention:text(r,["retentionStatus"],text(d,["outcome"],"Unknown")),
+      // VL status is derived from the numeric/text VL Result, never trusted from a saved status label.
+      vlValue:text(r,["vlValue","vlResult","viralLoadResult","VL Result","Laboratory test: Viral Load result (copies/mL)"],text(d,["vlValue","vlResult","viralLoadResult","VL Result","Laboratory test: Viral Load result (copies/mL)"],"—")),
+      cd4:text(r,["latestCd4Count"],"—"), nextRefill, dispenseDate
+    };
+  }
+  function allVlRecords(rec) {
+    const candidates = [];
+    const addLogs = (value, source) => {
+      if (Array.isArray(value)) value.forEach(v => {
+        if (v && typeof v === "object") candidates.push({...v, __source:source});
+      });
+      else if (value && typeof value === "object") {
+        Object.values(value).forEach(v => {
+          if (v && typeof v === "object") candidates.push({...v, __source:source});
+        });
+      }
+    };
+    addLogs(rec.d?.vlLogs, "demographics");
+    addLogs(rec.r?.vlLogs, "registry");
+    // Some saved records keep the most recent VL directly on the registry.
+    const directDate = text(rec.r,["vlDate","latestVlDate","viralLoadDate"],text(rec.d,["vlDate","latestVlDate","viralLoadDate"],""));
+    const directResult = text(rec.r,["vlValue","vlResult","latestVlResult","viralLoadResult"],text(rec.d,["vlValue","vlResult","latestVlResult","viralLoadResult"],""));
+    if (directDate || directResult) candidates.push({date:directDate, result:directResult, __source:"direct"});
+    return candidates.map(v => {
+      const keys = Object.keys(v || {});
+      const dateKey = keys.find(k => /(^date$|vl.*date|date.*vl|testdate|dateperformed|resultdate|date.*viral.*load|viral.*load.*date)/i.test(k));
+      const resultKey = keys.find(k => /^(count|result|value|resultvalue|vlvalue|vlresult|viralloadresult|copies|copiesml)$/i.test(k.replace(/[_ -]/g,'')) || /vl.*result|result.*vl|viral.*load.*result|copies.*ml/i.test(k));
+      const dateValue = text(v,["date","vlDate","testDate","dateTested","laboratoryTestDate","viralLoadDate","datePerformed","resultDate","vl date","laboratory test: viral load date"], dateKey ? v[dateKey] : "");
+      const resultValue = text(v,["count","result","vlValue","vlResult","viralLoadResult","copies","copiesMl","value","resultValue","vl result","laboratory test: viral load result (copies/ml)"], resultKey ? v[resultKey] : "");
+      return {date:parseDate(dateValue), rawDate:dateValue, result:resultValue};
+    }).filter(v => v.date || v.result);
+  }
+  function vlOutcome(result) {
+    const raw=String(result??"").trim().toUpperCase();
+    if (!raw) return "Unknown";
+    if (/UNDETECTABLE|UNDETECTED|\bUD\b|\bTND\b|NOT DETECTED|NONE DETECTED|BELOW DETECTION/.test(raw)) return "Undetectable";
+    const cleaned=raw.replace(/,/g,"").replace(/COPIES?\s*\/\s*ML|COPIES|CP\/ML|CPM|\s/g,"").replace(/[<>]=?/g,"");
+    const n=Number(cleaned);
+    if (Number.isFinite(n) && cleaned!=="") return n <= 50 ? "Undetectable" : n < 1000 ? "Suppressed" : "Not Suppressed";
+    if (/NOT SUPPRESSED|DETECTED/.test(raw)) return "Not Suppressed";
+    if (/SUPPRESSED|DETECTABLE/.test(raw)) return "Suppressed";
+    return "Unknown";
+  }
+  function vlSummary(rec, asOf) {
+    // Count/classify VL only when a dated historical VL record exists and has a result.
+    // A standalone current VL Result value without a corresponding date/history is not evidence of a prior test.
+    const history=allVlRecords(rec)
+      .filter(v=>v.date && v.date<=asOf && String(v.result ?? "").trim() !== "" && String(v.result ?? "").trim() !== "—")
+      .sort((a,b)=>b.date-a.date);
+    const latest=history[0]||null;
+    const windowStart=new Date(asOf); windowStart.setFullYear(windowStart.getFullYear()-1); windowStart.setDate(windowStart.getDate()+1);
+    const recent=history.find(v=>v.date>=windowStart)||null;
+    const currentMonth=history.some(v=>v.date.getFullYear()===asOf.getFullYear() && v.date.getMonth()===asOf.getMonth());
+    const alive=/alive on art|active/.test(norm(rec.outcome));
+    const continuing=/continuing/.test(norm(text(rec.d,["artStatus"],text(rec.r,["artStatus"],""))));
+    const naive=history.length===0;
+    // Reference cascade: alive on ART only; naive clients and continuing clients
+    // whose latest VL is older than 12 months are eligible. A test in the
+    // reporting month counts in both eligible and tested.
+    const eligible=alive && (naive || (continuing && latest && latest.date<windowStart) || currentMonth);
+    const tested=alive && !!recent;
+    // VL Status comes from the actual VL Result value, but only when paired with
+    // a dated historical record on or before the report date. Do not count a
+    // standalone VL Result field when no dated VL history exists.
+    const qualifyingRecord = recent || latest;
+    const resultValue = qualifyingRecord ? qualifyingRecord.result : "";
+    const status = qualifyingRecord ? vlOutcome(resultValue) : "Unknown";
+    const hasResult = !!qualifyingRecord && String(resultValue ?? "").trim() !== "" && resultValue !== "—";
+    const statusCountable = alive && hasResult && status !== "Unknown";
+    return {
+      eligible,
+      tested,
+      status,
+      undetectable:statusCountable && status==="Undetectable",
+      suppressed:statusCountable && (status==="Suppressed"||status==="Undetectable"),
+      notSuppressed:statusCountable && status==="Not Suppressed",
+      latest,
+      resultValue
+    };
+  }
+  function refillCategory(rec, asOf) {
+    if (!rec.nextRefill) return "No refill date";
+    const diff = dayDiff(rec.nextRefill, asOf);
+    if (diff < 0) return "Past due";
+    const thisWeek = weekBounds(asOf), nextWeek = {start:plusDays(thisWeek.end,1),end:plusDays(thisWeek.end,7)};
+    if (rec.nextRefill >= thisWeek.start && rec.nextRefill <= thisWeek.end) return "Due this week";
+    if (rec.nextRefill >= nextWeek.start && rec.nextRefill <= nextWeek.end) return "Due next week";
+    return diff === 0 ? "Due today" : "Scheduled";
+  }
+  function pill(label) {
+    const n=norm(label);
+    let c="";
+    if (/past due|ltfu|deceased|died|stopped/.test(n)) c="red";
+    else if (/due this week|due next week|no refill date/.test(n)) c="amber";
+    else if (/alive on art|active|transferred in/.test(n)) c="green";
+    else if (/scheduled|due today/.test(n)) c="blue";
+    return `<span class="pill ${c}">${esc(label)}</span>`;
+  }
+  function showStatus(message, type="") {
+    $("status").className="status"+(type?" "+type:"");
+    $("status").textContent=message;
+  }
+  async function load() {
+    const btn=$("refreshBtn"); btn.disabled=true; btn.textContent="Loading…";
+    showStatus("Loading ART registry records from the authenticated facility…");
+    try {
+      const res=await fetch("/api/art/registry",{method:"GET",credentials:"same-origin",headers:{"Accept":"application/json","Cache-Control":"no-cache"}});
+      const data=await res.json().catch(()=>({}));
+      if (!res.ok || data.success !== true || !Array.isArray(data.records)) {
+        if (res.status===401) throw new Error("Your staff session is not authenticated. Sign in again, then reopen this report.");
+        if (res.status===403) throw new Error(data.error || "Access denied. Check your staff clearance and facility authorization.");
+        throw new Error(data.error || `Unable to load ART registry (HTTP ${res.status}).`);
+      }
+      allRecords=data.records.map(recordOf).filter(r=>r.uic);
+      facilityName=data.facility_name || data.facility_id || "";
+      $("subtitle").textContent=(facilityName?facilityName+" · ":"")+"Facility-level retention, refill monitoring, and treatment outcomes";
+      showStatus(`Loaded ${allRecords.length.toLocaleString()} active ART registry record(s). Report calculations use the selected report date.`, "ok");
+      render();
+    } catch(err) {
+      showStatus(err.message || "Unable to load report data.", "error");
+      $("refillRows").innerHTML=`<tr><td colspan="8" class="empty">Could not load data. ${esc(err.message || "")}</td></tr>`;
+      $("registryRows").innerHTML=`<tr><td colspan="10" class="empty">Could not load data.</td></tr>`;
+    } finally {btn.disabled=false;btn.textContent="↻ Refresh data";}
+  }
+  function filteredRecords() {
+    const asOf=parseDate($("asOf").value)||parseDate(todayISO());
+    const outFilter=$("outcomeFilter").value, refFilter=$("refillFilter").value, q=norm($("searchInput").value);
+    return allRecords.filter(r=>{
+      const outcome=norm(r.outcome), category=norm(refillCategory(r,asOf));
+      let om=true;
+      if(outFilter==="alive") om=/alive on art|active/.test(outcome);
+      else if(outFilter==="deceased") om=/deceased|died/.test(outcome);
+      else if(outFilter==="ltfu") om=outcome==="ltfu";
+      else if(outFilter==="transout") om=/transferred out/.test(outcome);
+      else if(outFilter==="stopped") om=/stopped treatment/.test(outcome);
+      else if(outFilter==="other") om=/other|unknown|transferred in/.test(outcome);
+      let rm=true;
+      if(refFilter==="pastdue") rm=category==="past due";
+      else if(refFilter==="thisweek") rm=category==="due this week";
+      else if(refFilter==="nextweek") rm=category==="due next week";
+      else if(refFilter==="nodate") rm=category==="no refill date";
+      const searchable=norm([r.uic,r.name,r.clientCode,r.outcome,r.retention].join(" "));
+      return om&&rm&&(!q||searchable.includes(q));
+    });
+  }
+  function renderMetrics() {
+    const asOf=parseDate($("asOf").value)||parseDate(todayISO());
+    const cats=allRecords.map(r=>({r,cat:refillCategory(r,asOf),vl:vlSummary(r,asOf)}));
+    const count=pattern=>allRecords.filter(r=>pattern.test(norm(r.outcome))).length;
+    const alive=count(/alive on art|active/);
+    const due=cats.filter(x=>x.cat==="Due today"||x.cat==="Due this week").length;
+    const ltfu=count(/ltfu|lost to follow/), deceased=count(/deceased|died/), transout=count(/transferred out/);
+    const eligible=cats.filter(x=>x.vl.eligible).length;
+    const tested=cats.filter(x=>x.vl.tested).length;
+    const testedEligible=cats.filter(x=>x.vl.eligible && x.vl.tested).length;
+    const suppressed=cats.filter(x=>x.vl.suppressed).length;
+    const notSuppressed=cats.filter(x=>x.vl.notSuppressed).length;
+    const undetectable=cats.filter(x=>x.vl.undetectable).length;
+    const set=(id,n)=>$(id).textContent=Number(n||0).toLocaleString();
+    set("m-alive",alive); $("m-due-hint").textContent=`Due: ${due.toLocaleString()}`;
+    set("m-ltfu",ltfu);set("m-deceased",deceased);set("m-transout",transout);
+    set("m-pastdue",cats.filter(x=>x.cat==="Past due").length);
+    set("m-thisweek",cats.filter(x=>x.cat==="Due this week").length);
+    set("m-nextweek",cats.filter(x=>x.cat==="Due next week").length);
+    set("m-vl-eligible",eligible);set("m-vl-tested",tested);set("m-vl-tested-eligible",testedEligible);
+    set("m-not-suppressed",notSuppressed);set("m-suppressed",suppressed);set("m-undetectable",undetectable);
+    const refillGroups=[["Past due",cats.filter(x=>x.cat==="Past due").length],["Due this week",cats.filter(x=>x.cat==="Due this week").length],["Due next week",cats.filter(x=>x.cat==="Due next week").length],["No refill date",cats.filter(x=>x.cat==="No refill date").length],["Scheduled / other",cats.filter(x=>!["Past due","Due this week","Due next week","No refill date"].includes(x.cat)).length]];
+    drawBars("refillChart",refillGroups);
+    const outcomes=new Map();
+    allRecords.forEach(r=>outcomes.set(r.outcome,(outcomes.get(r.outcome)||0)+1));
+    drawBars("outcomeChart",[...outcomes.entries()].sort((a,b)=>b[1]-a[1]));
+  }
+  function drawBars(target, groups) {
+    const max=Math.max(1,...groups.map(g=>g[1]));
+    $(target).innerHTML=groups.length?groups.map(([label,value])=>`<div class="bar-row"><div class="bar-label">${esc(label)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(value?2:0,value/max*100)}%"></div></div><div class="bar-value">${value.toLocaleString()}</div></div>`).join(""):'<div class="empty">No records available.</div>';
+  }
+  function render() {
+    const asOf=parseDate($("asOf").value)||parseDate(todayISO());
+    renderMetrics();
+    const list=filteredRecords();
+    const refillList=list.filter(r=>["Past due","Due this week","Due next week","No refill date"].includes(refillCategory(r,asOf)))
+      .sort((a,b)=>(a.nextRefill?.getTime()??Infinity)-(b.nextRefill?.getTime()??Infinity));
+    $("refillCount").textContent=`${refillList.length.toLocaleString()} clients`;
+    $("registryCount").textContent=`${list.length.toLocaleString()} records`;
+    $("refillRows").innerHTML=refillList.length?refillList.map(r=>{
+      const cat=refillCategory(r,asOf), diff=r.nextRefill?dayDiff(r.nextRefill,asOf):null;
+      const dayLabel=diff===null?"—":diff<0?`${Math.abs(diff)} day(s) overdue`:diff===0?"Today":`In ${diff} day(s)`;
+      return `<tr><td><strong>${esc(r.uic)}</strong></td><td>${esc(r.name)}</td><td>${esc(r.clientCode)}</td><td>${pill(r.outcome)}</td><td>${pill(cat)}</td><td>${esc(r.nextRefill?iso(r.nextRefill):"Not recorded")}</td><td>${esc(r.dispenseDate?iso(r.dispenseDate):"—")}</td><td>${esc(dayLabel)}</td></tr>`;
+    }).join(""):'<tr><td colspan="8" class="empty">No clients match the current filters and refill categories.</td></tr>';
+    $("registryRows").innerHTML=list.length?list.map(r=>{const vl=vlSummary(r,asOf);const result=vl.resultValue??r.vlValue;return `<tr><td><strong>${esc(r.uic)}</strong></td><td>${esc(r.name)}</td><td>${esc(r.clientCode)}</td><td>${esc(r.enrollment||"—")}</td><td>${pill(r.outcome)}</td><td>${pill(r.retention||"Unknown")}</td><td>${pill(vl.status)}</td><td>${esc(result||"—")}</td><td>${esc(r.cd4)}</td><td>${esc(r.nextRefill?iso(r.nextRefill):"—")}</td></tr>`;}).join(""):'<tr><td colspan="10" class="empty">No records match the current filters.</td></tr>';
+  }
+  function exportCSV() {
+    const asOf=parseDate($("asOf").value)||parseDate(todayISO()), rows=filteredRecords();
+    const headers=["UIC","Client name","Client code","ART enrollment date","Treatment outcome","Retention status","VL status","VL value","Latest CD4","Next refill date","Dispense date","Refill category"];
+    const values=rows.map(r=>{const vl=vlSummary(r,asOf);return [r.uic,r.name,r.clientCode,r.enrollment,r.outcome,r.retention,vl.status,vl.resultValue??r.vlValue,r.cd4,r.nextRefill?iso(r.nextRefill):"",r.dispenseDate?iso(r.dispenseDate):"",refillCategory(r,asOf)];});
+    const csv=[headers,...values].map(row=>row.map(v=>{let s=String(v??"");if(/^[=+\-@]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}).join(",")).join("\r\n");
+    const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8;"});
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="ART_Treatment_Monitoring_Report.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }
+  ["asOf","outcomeFilter","refillFilter"].forEach(id=>$(id).addEventListener("change",render));
+  $("searchInput").addEventListener("input",render);
+  $("refreshBtn").addEventListener("click",load);
+  $("printBtn").addEventListener("click",()=>window.print());
+  $("csvBtn").addEventListener("click",exportCSV);
+  $("resetBtn").addEventListener("click",()=>{$("asOf").value=todayISO();$("outcomeFilter").value="";$("refillFilter").value="";$("searchInput").value="";render();});
+  load();
+})();
 </script>
 </body>
 </html>
