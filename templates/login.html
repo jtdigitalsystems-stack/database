@@ -149,18 +149,36 @@ async function connectToFacilityNode(email) {
 
         currentFacilityConfig = configData;
 
-        const existingApps = getApps();
-        let app = existingApps.find(existingApp =>
-            existingApp.options &&
-            existingApp.options.projectId === configData.firebase.projectId
+
+const existingApps = getApps();
+
+// Give each facility its own named Firebase app so one facility
+// cannot accidentally reuse another facility's default app.
+const appName = `facility_${String(currentFacilityId).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+
+let app = existingApps.find(existingApp => existingApp.name === appName);
+
+if (app) {
+    const existingConfig = app.options;
+    const requestedConfig = configData.firebase;
+
+    if (
+        existingConfig.apiKey !== requestedConfig.apiKey ||
+        existingConfig.authDomain !== requestedConfig.authDomain ||
+        existingConfig.projectId !== requestedConfig.projectId ||
+        existingConfig.appId !== requestedConfig.appId
+    ) {
+        throw new Error(
+            `Firebase configuration mismatch for facility ${currentFacilityId}.`
         );
+    }
+} else {
+    app = initializeApp(configData.firebase, appName);
+}
 
-        if (!app) {
-            app = initializeApp(configData.firebase);
-        }
+firebaseApp = app;
+auth = getAuth(firebaseApp);
 
-        firebaseApp = app;
-        auth = getAuth(firebaseApp);
 
         const label = document.getElementById("facility-sub-label");
         if (label && configData.facility_name) {
@@ -171,12 +189,28 @@ async function connectToFacilityNode(email) {
         setTimeout(hideStatus, 1800);
         return true;
     } catch (error) {
-        currentFacilityConfig = null;
-        auth = null;
-        firebaseApp = null;
-        displayStatus("Unable to initialize the facility authentication.");
-        return false;
-    }
+    console.error(
+        "[Facility Auth Initialization Failed]",
+        {
+            facilityId: currentFacilityId,
+            message: error?.message,
+            code: error?.code,
+            error: error
+        }
+    );
+
+    currentFacilityConfig = null;
+    auth = null;
+    firebaseApp = null;
+
+    displayStatus(
+        `Unable to initialize facility authentication: ${
+            error?.message || "Unknown error"
+        }`
+    );
+
+    return false;
+}
 }
 
 async function ensureFacilityConnection(email) {
