@@ -113,9 +113,9 @@
                 </div>
             </button>
 
-            <button onclick="window.location.href='{{ url_for("art_export_page") }}'" class="hub-card group bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-500 text-left transition-all duration-200 flex flex-col justify-between">
+            <button type="button" disabled aria-disabled="true" class="hub-card group bg-slate-100 p-4 rounded-xl border border-slate-200 text-left flex flex-col justify-between opacity-60 cursor-not-allowed">
                 <div class="space-y-3 w-full">
-                    <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-300">
+                    <div class="w-10 h-10 rounded-lg bg-slate-200 text-slate-400 border border-slate-300 flex items-center justify-center transition-colors duration-300">
                         <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                             <polyline points="14 2 14 8 20 8"/>
@@ -125,12 +125,12 @@
                         </svg>
                     </div>
                     <div>
-                        <h2 class="text-sm font-extrabold text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-wide">Export Records</h2>
+                        <h2 class="text-sm font-extrabold text-slate-500 uppercase tracking-wide">Export Records</h2>
                         <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">Export client registry logs.</p>
                     </div>
                 </div>
-                <div id="export-status-text" class="text-[10px] uppercase font-bold text-emerald-600 flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    Go to exports &rarr;
+                <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1 mt-3">
+                    Currently unavailable
                 </div>
             </button>
 
