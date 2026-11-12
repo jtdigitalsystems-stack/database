@@ -48,14 +48,6 @@
                     </div>
 
                     <div>
-                        <select id="filter-vl-eligibility" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition" aria-label="Filter by viral load eligibility">
-                            <option value="">All VL Eligibility Statuses</option>
-                            <option value="eligible">VL Eligible</option>
-                            <option value="up-to-date">Up to date</option>
-                        </select>
-                    </div>
-
-                    <div>
                         <select id="filter-vl" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
                             <option value="">All Viral Load Statuses</option>
                             <option value="Suppressed">Suppressed</option>
@@ -1264,100 +1256,6 @@
             return String(value ?? '').trim().toLowerCase();
         }
 
-        // VL eligibility follows vl.html: EDATE(ART Initiation Date, 6) <= reporting month-end
-        // AND Current ART Outcome is Alive on ARV. "Up to date" additionally requires
-        // a latest VL assessment within the rolling 12-month reporting window.
-        function parseRegistryDate(value) {
-            if (value === null || value === undefined || String(value).trim() === '' || String(value).trim() === '---') return null;
-            // Firestore Timestamp support, in case a date is returned as a timestamp object.
-            if (value && typeof value.toDate === 'function') value = value.toDate();
-            if (value instanceof Date && !Number.isNaN(value.getTime())) {
-                return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-            }
-            if (typeof value === 'number' && Number.isFinite(value)) {
-                // Support Excel serial dates as well as ordinary date strings.
-                const excelDate = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
-                if (!Number.isNaN(excelDate.getTime())) return new Date(excelDate.getUTCFullYear(), excelDate.getUTCMonth(), excelDate.getUTCDate());
-            }
-            const text = String(value).trim();
-            let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-            if (match) {
-                const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-                return date.getFullYear() === Number(match[1]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[3]) ? date : null;
-            }
-            match = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
-            if (match) {
-                const first = Number(match[1]), second = Number(match[2]), year = Number(match[3]);
-                // Match the linelist parser's day/month handling for unambiguous dates.
-                const month = first > 12 ? second : first;
-                const day = first > 12 ? first : second;
-                const date = new Date(year, month - 1, day);
-                return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
-            }
-            const parsed = new Date(text);
-            return Number.isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-        }
-
-        function addRegistryMonthsExcel(date, months) {
-            if (!date) return null;
-            const targetFirst = new Date(date.getFullYear(), date.getMonth() + months, 1);
-            const lastDay = new Date(targetFirst.getFullYear(), targetFirst.getMonth() + 1, 0).getDate();
-            return new Date(targetFirst.getFullYear(), targetFirst.getMonth(), Math.min(date.getDate(), lastDay));
-        }
-
-        function resolveRegistryVlEligibility(registryData, demoData) {
-            // dbv3 stores the ART outcome/date in different documents depending on record age.
-            // Prefer registry fields, then fall back to the demographics document.
-            const rawOutcome = registryData?.retentionStatus || registryData?.outcome ||
-                demoData?.outcome || demoData?.retentionStatus ||
-                registryData?.['ART OUTCOME'] || demoData?.['ART OUTCOME'] || '';
-            const normalizedOutcome = String(rawOutcome).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-            // dbv3 uses "Alive on ART" (and older records may use "Active"); vl.html's
-            // linelist uses "alive on arv". These are treated as the same active ART outcome.
-            const aliveOnArt = ['aliveonarv', 'aliveonart', 'active'].includes(normalizedOutcome);
-
-            const artDateValue = registryData?.artEnrollmentDate || registryData?.artDate ||
-                demoData?.artDate || registryData?.['DATE ENROLLED TO ART'] ||
-                demoData?.['DATE ENROLLED TO ART'] || registryData?.['ART Initiation: Date'] ||
-                demoData?.['ART Initiation: Date'] || '';
-            const artDate = parseRegistryDate(artDateValue);
-
-            // Latest VL assessment date: use the newest date across saved VL history and
-            // any direct/mapped date field. dbv3 normally stores this in vlLogs[].date.
-            const vlDateCandidates = [
-                registryData?.vlAssessmentDate, registryData?.latestVlDate, registryData?.vlDate,
-                demoData?.vlAssessmentDate, demoData?.latestVlDate, demoData?.vlDate,
-                registryData?.['VIRAL LOADD ASSESMENT TEST DATE'], demoData?.['VIRAL LOADD ASSESMENT TEST DATE'],
-                registryData?.['Latest VL: Date'], demoData?.['Latest VL: Date']
-            ];
-            const vlLogs = [
-                ...(Array.isArray(registryData?.vlLogs) ? registryData.vlLogs : []),
-                ...(Array.isArray(demoData?.vlLogs) ? demoData.vlLogs : [])
-            ];
-            vlLogs.forEach(log => vlDateCandidates.push(log?.date));
-            const vlDates = vlDateCandidates.map(parseRegistryDate).filter(Boolean);
-            const latestVlDate = vlDates.length
-                ? vlDates.reduce((latest, date) => date > latest ? date : latest)
-                : null;
-
-            // dbv3 has no reporting-month selector, so use the current calendar month-end,
-            // exactly as vl.html does after a reporting month is selected.
-            const now = new Date();
-            const referencePeriod = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-            const sixMonthDate = addRegistryMonthsExcel(artDate, 6);
-
-            // Mirrors vl.html: EDATE(ART Initiation: Date, 6) <= Reference Period
-            // AND Current ART Outcome = "alive on arv".
-            const eligible = aliveOnArt && !!sixMonthDate && sixMonthDate <= referencePeriod;
-
-            // Mirrors vl.html's 12-month VL testing window, inclusive of both endpoints.
-            const upToDate = eligible && !!latestVlDate &&
-                latestVlDate >= windowStart && latestVlDate <= referencePeriod;
-
-            return { eligible, upToDate, artDate, latestVlDate, referencePeriod, windowStart, sixMonthDate };
-        }
-
         function resolveRegistryVlStatus(data) {
             const existing = String(data?.vlStatus ?? '').trim();
             if (existing && !['unknown', '---', 'n/a', 'na'].includes(existing.toLowerCase())) {
@@ -1433,7 +1331,6 @@
             const clearance = localStorage.getItem('user_clearance') || 'Viewer';
 
             const searchVal = normalizeFilterText(document.getElementById('table-search')?.value);
-            const filterVlEligibility = normalizeFilterText(document.getElementById('filter-vl-eligibility')?.value);
             const filterVl = normalizeFilterText(document.getElementById('filter-vl')?.value);
             const filterRetention = normalizeFilterText(document.getElementById('filter-retention')?.value);
             const filterStart = document.getElementById('filter-date-start')?.value || '';
@@ -1454,14 +1351,6 @@
                     const haystack = [uic, clientCode, firstName, middleName, lastName, fullName]
                         .map(normalizeFilterText);
                     if (!haystack.some(value => value.includes(searchVal))) return false;
-                }
-
-                // VL eligibility is evaluated independently from viral-load suppression status.
-                // "Up to date" means eligible AND latest VL assessment is within the last 12-month window.
-                if (filterVlEligibility) {
-                    const vlEligibility = resolveRegistryVlEligibility(data, demoData);
-                    if (filterVlEligibility === 'eligible' && !vlEligibility.eligible) return false;
-                    if (filterVlEligibility === 'up-to-date' && !vlEligibility.upToDate) return false;
                 }
 
                 // Compare case-insensitively and derive a status when older records lack vlStatus.
@@ -1833,7 +1722,6 @@
             if (editBtn) editBtn.onclick = function() { toggleEditMode(true); };
 
             document.getElementById('table-search').addEventListener('input', applyActiveRegistryFilters);
-            document.getElementById('filter-vl-eligibility').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-vl').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-retention').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-date-start').addEventListener('change', applyActiveRegistryFilters);
