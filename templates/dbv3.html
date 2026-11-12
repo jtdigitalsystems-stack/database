@@ -107,7 +107,7 @@
                             <th class="py-3 px-4">VL Result</th>
                             <th class="py-3 px-4">VL Status</th>
                             <th class="py-3 px-4">CD4 Count</th>
-                            <th class="py-3 px-4">ART Status</th>
+                            <th class="py-3 px-4">ART / Follow-up Status</th>
                             <th class="py-3 px-4">Next Refill Date</th>
                             <th class="py-3 px-4 text-center">Actions</th>
                         </tr>
@@ -1327,12 +1327,16 @@
         }
 
         function resolveRegistryVlEligibility(registryData, demoData) {
-            // Always use the authoritative ART OUTCOME before checking VL eligibility.
+            // Section V (ART Refill & Follow-up) is the operational source of truth
+            // for ACTIVE / DUE / LTFU. A stale ART OUTCOME value must not turn a
+            // Section V LTFU client into an eligible client.
             const rawOutcome = resolveRegistryArtOutcome(registryData, demoData);
             const normalizedOutcome = String(rawOutcome).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-            // dbv3 uses "Alive on ART" (and older records may use "Active"); vl.html's
-            // linelist uses "alive on arv". These are treated as the same active ART outcome.
-            const aliveOnArt = ['aliveonarv', 'aliveonart', 'active'].includes(normalizedOutcome);
+            const isExceptionalOutcome = ['deceased', 'dead', 'died', 'transout', 'transferredout'].includes(normalizedOutcome);
+            const sectionVStatus = resolveSectionVRefillStatus(registryData, demoData);
+            // ACTIVE and DUE remain in care for this workflow; LTFU, deceased,
+            // and trans-out clients are not counted as VL eligible.
+            const aliveOnArt = !isExceptionalOutcome && sectionVStatus !== 'LTFU';
 
             const artDateValue = registryData?.artEnrollmentDate || registryData?.artDate ||
                 demoData?.artDate || registryData?.['DATE ENROLLED TO ART'] ||
@@ -1438,6 +1442,21 @@
             return balance >= 1 ? 'ACTIVE' : (Math.abs(balance) > 30 ? 'LTFU' : 'DUE');
         }
 
+        // Table status follows Section V's refill/follow-up badge rather than a potentially
+        // stale mirrored ART OUTCOME. Preserve terminal outcomes (Deceased / Trans-out).
+        function resolveRegistryTableArtStatus(registryData, demoData) {
+            const rawOutcome = resolveRegistryArtOutcome(registryData, demoData);
+            const normalizedOutcome = String(rawOutcome || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (['deceased', 'dead', 'died', 'deceasedclient'].includes(normalizedOutcome)) return 'Deceased';
+            if (['transout', 'transferredout', 'transferout', 'transferredoutofcare', 'transferredtoanotherfacility'].includes(normalizedOutcome)) return 'Trans-out';
+
+            const sectionVStatus = resolveSectionVRefillStatus(registryData, demoData);
+            if (sectionVStatus === 'LTFU') return 'LTFU';
+            if (sectionVStatus === 'DUE') return 'DUE';
+            if (sectionVStatus === 'ACTIVE') return 'Alive on ART';
+            return rawOutcome || '---';
+        }
+
         function normalizeRetentionOutcome(value) {
             const normalized = normalizeFilterText(value);
             if (normalized === 'active' || normalized === 'alive on art') return 'alive on art';
@@ -1486,15 +1505,9 @@
                 const vlStatus = normalizeFilterText(resolveRegistryVlStatus(data));
                 if (filterVl && vlStatus !== filterVl) return false;
 
-                // ART outcome is independent from refill status. DUE filters the Section V
-                // refill subset without changing the client's stored ART outcome.
-                // Use the same authoritative ART OUTCOME as the table and VL eligibility.
-                const rawOutcome = resolveRegistryArtOutcome(data, demoData);
-                const retentionStatus = normalizeRetentionOutcome(rawOutcome);
-                const sectionVStatus = normalizeFilterText(resolveSectionVRefillStatus(data, demoData));
-                if (filterRetention === 'due') {
-                    if (sectionVStatus !== 'due' || !['alive on art', 'active'].includes(retentionStatus)) return false;
-                } else if (filterRetention && retentionStatus !== filterRetention) return false;
+                // Retention filtering follows the same Section V-derived status shown in the table.
+                const tableArtStatus = normalizeRetentionOutcome(resolveRegistryTableArtStatus(data, demoData));
+                if (filterRetention && tableArtStatus !== filterRetention) return false;
 
                 // Enrollment date can exist in either the registry or demographics payload.
                 const enrollmentDate = String(
@@ -1559,18 +1572,15 @@
                 const resolvedClientCode = registryData.generated_serial_code || demoData.generated_serial_code || '---';
                 const resolvedEnrollmentDate = registryData.artEnrollmentDate || registryData.artDate || demoData.artDate || '---';
                 const resolvedVlStatus = resolveRegistryVlStatus(registryData);
-                // Display the actual ART OUTCOME from demographics first; the registry
-                // retentionStatus is only a fallback because older mirrored values may be stale.
-                const rawRetention = resolveRegistryArtOutcome(registryData, demoData) || '---';
-                const normalizedRetention = normalizeRetentionOutcome(rawRetention);
-                // Preserve ART Outcome label. DUE remains a separate Section V status/filter.
-                const resolvedRetention = (normalizedRetention === 'active' || normalizedRetention === 'alive on art')
-                    ? 'Alive on ART' : rawRetention;
+                // Display the Section V ART Refill & Follow-up status so the client
+                // table cannot remain falsely marked Alive on ART when refill logic says LTFU.
+                const resolvedRetention = resolveRegistryTableArtStatus(registryData, demoData);
+                const normalizedRetention = normalizeRetentionOutcome(resolvedRetention);
                 const retentionBadgeClass = ['deceased', 'trans-out'].includes(normalizeFilterText(resolvedRetention))
                     ? 'bg-slate-100 text-slate-600 border border-slate-300'
-                    : normalizeFilterText(resolvedRetention) === 'ltfu'
+                    : normalizedRetention === 'ltfu'
                         ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                        : ['alive on art', 'active'].includes(normalizeFilterText(resolvedRetention))
+                        : ['alive on art', 'active'].includes(normalizedRetention)
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : 'bg-amber-50 text-amber-700 border border-amber-200';
 
