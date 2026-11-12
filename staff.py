@@ -1299,8 +1299,23 @@ def art_registry():
                 "demographics": demo,
             })
         return jsonify({"success": True, "facility_id": context["facility_id"], "records": records}), 200
-    except Exception:
-        return jsonify({"success": False, "error": "Unable to load ART registry."}), 503
+    except Exception as registry_error:
+        # Keep the client response generic, but log the real server-side cause.
+        # This is essential for diagnosing tenant Firestore quota, permission,
+        # network, and timeout errors without exposing internals to the browser.
+        print(
+            "ART REGISTRY LOAD FAILED:",
+            {
+                "facility_id": context.get("facility_id"),
+                "staff_email": context.get("email"),
+                "error_type": type(registry_error).__name__,
+                "error": repr(registry_error),
+            },
+            flush=True,
+        )
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": "Unable to load ART registry. Check server logs for the facility-specific cause."}), 503
 
 
 @app.route("/api/art/client/<uic>", methods=["GET"])
@@ -2769,8 +2784,31 @@ def _sheets_backup_post(context, payload):
     payload["facility_id"] = facility_id
     payload["synchronized_at"] = datetime.now(timezone.utc).isoformat()
     try:
-        response = requests.post(webhook, json=payload, timeout=SHEETS_BACKUP_TIMEOUT_SECONDS, allow_redirects=True)
-        body = response.json() if response.content else {}
+        response = requests.post(
+    webhook,
+    json=payload,
+    timeout=SHEETS_BACKUP_TIMEOUT_SECONDS,
+    allow_redirects=True
+)
+
+        try:
+            body = response.json() if response.content else {}
+        except ValueError:
+            print(
+        "Google Sheets non-JSON response:",
+        facility_id,
+        "status=", response.status_code,
+        "content_type=", response.headers.get("Content-Type"),
+        "final_url=", response.url.split("?")[0],
+        "body_preview=", response.text[:300]
+    )
+            return None, (
+        jsonify({
+            "success": False,
+            "error": "Google Sheets returned a non-JSON response. Check the facility webhook deployment."
+        }),
+        502
+    )
         if response.status_code != 200 or not isinstance(body, dict) or body.get("success") is not True:
             print("Google Sheets backup rejected:", facility_id, response.status_code, str(body)[:500])
             return None, (jsonify({"success": False, "error": "Google Sheets rejected the backup. Check the Apps Script deployment and logs."}), 502)
