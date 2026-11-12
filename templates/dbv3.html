@@ -1269,6 +1269,8 @@
         // a latest VL assessment within the rolling 12-month reporting window.
         function parseRegistryDate(value) {
             if (value === null || value === undefined || String(value).trim() === '' || String(value).trim() === '---') return null;
+            // Firestore Timestamp support, in case a date is returned as a timestamp object.
+            if (value && typeof value.toDate === 'function') value = value.toDate();
             if (value instanceof Date && !Number.isNaN(value.getTime())) {
                 return new Date(value.getFullYear(), value.getMonth(), value.getDate());
             }
@@ -1286,6 +1288,7 @@
             match = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
             if (match) {
                 const first = Number(match[1]), second = Number(match[2]), year = Number(match[3]);
+                // Match the linelist parser's day/month handling for unambiguous dates.
                 const month = first > 12 ? second : first;
                 const day = first > 12 ? first : second;
                 const date = new Date(year, month - 1, day);
@@ -1303,17 +1306,24 @@
         }
 
         function resolveRegistryVlEligibility(registryData, demoData) {
-            const source = { ...(demoData || {}), ...(registryData || {}) };
-            const rawOutcome = registryData?.retentionStatus || demoData?.outcome || demoData?.retentionStatus || '';
+            // dbv3 stores the ART outcome/date in different documents depending on record age.
+            // Prefer registry fields, then fall back to the demographics document.
+            const rawOutcome = registryData?.retentionStatus || registryData?.outcome ||
+                demoData?.outcome || demoData?.retentionStatus ||
+                registryData?.['ART OUTCOME'] || demoData?.['ART OUTCOME'] || '';
             const normalizedOutcome = String(rawOutcome).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-            const aliveOnArt = ['aliveonarv', 'aliveonart'].includes(normalizedOutcome);
+            // dbv3 uses "Alive on ART" (and older records may use "Active"); vl.html's
+            // linelist uses "alive on arv". These are treated as the same active ART outcome.
+            const aliveOnArt = ['aliveonarv', 'aliveonart', 'active'].includes(normalizedOutcome);
 
-            const artDate = parseRegistryDate(
-                registryData?.artEnrollmentDate || registryData?.artDate || demoData?.artDate ||
-                registryData?.['DATE ENROLLED TO ART'] || demoData?.['DATE ENROLLED TO ART']
-            );
+            const artDateValue = registryData?.artEnrollmentDate || registryData?.artDate ||
+                demoData?.artDate || registryData?.['DATE ENROLLED TO ART'] ||
+                demoData?.['DATE ENROLLED TO ART'] || registryData?.['ART Initiation: Date'] ||
+                demoData?.['ART Initiation: Date'] || '';
+            const artDate = parseRegistryDate(artDateValue);
 
-            // Use the most recent assessment date available in the saved VL history or mapped field.
+            // Latest VL assessment date: use the newest date across saved VL history and
+            // any direct/mapped date field. dbv3 normally stores this in vlLogs[].date.
             const vlDateCandidates = [
                 registryData?.vlAssessmentDate, registryData?.latestVlDate, registryData?.vlDate,
                 demoData?.vlAssessmentDate, demoData?.latestVlDate, demoData?.vlDate,
@@ -1326,16 +1336,26 @@
             ];
             vlLogs.forEach(log => vlDateCandidates.push(log?.date));
             const vlDates = vlDateCandidates.map(parseRegistryDate).filter(Boolean);
-            const latestVlDate = vlDates.length ? vlDates.reduce((latest, date) => date > latest ? date : latest) : null;
+            const latestVlDate = vlDates.length
+                ? vlDates.reduce((latest, date) => date > latest ? date : latest)
+                : null;
 
+            // dbv3 has no reporting-month selector, so use the current calendar month-end,
+            // exactly as vl.html does after a reporting month is selected.
             const now = new Date();
             const referencePeriod = new Date(now.getFullYear(), now.getMonth() + 1, 0);
             const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-            const eligibilityDate = addRegistryMonthsExcel(artDate, 6);
-            const eligible = aliveOnArt && !!eligibilityDate && eligibilityDate <= referencePeriod;
-            const upToDate = eligible && !!latestVlDate && latestVlDate >= windowStart && latestVlDate <= referencePeriod;
+            const sixMonthDate = addRegistryMonthsExcel(artDate, 6);
 
-            return { eligible, upToDate };
+            // Mirrors vl.html: EDATE(ART Initiation: Date, 6) <= Reference Period
+            // AND Current ART Outcome = "alive on arv".
+            const eligible = aliveOnArt && !!sixMonthDate && sixMonthDate <= referencePeriod;
+
+            // Mirrors vl.html's 12-month VL testing window, inclusive of both endpoints.
+            const upToDate = eligible && !!latestVlDate &&
+                latestVlDate >= windowStart && latestVlDate <= referencePeriod;
+
+            return { eligible, upToDate, artDate, latestVlDate, referencePeriod, windowStart, sixMonthDate };
         }
 
         function resolveRegistryVlStatus(data) {
