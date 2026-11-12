@@ -48,6 +48,14 @@
                     </div>
 
                     <div>
+                        <select id="filter-vl-eligibility" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition" aria-label="Filter by viral load eligibility">
+                            <option value="">All VL Eligibility Statuses</option>
+                            <option value="eligible">VL Eligible</option>
+                            <option value="up-to-date">Up to date</option>
+                        </select>
+                    </div>
+
+                    <div>
                         <select id="filter-vl" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
                             <option value="">All Viral Load Statuses</option>
                             <option value="Suppressed">Suppressed</option>
@@ -59,6 +67,7 @@
                         <select id="filter-retention" class="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:bg-white transition">
                             <option value="">All Retention Outcomes</option>
                             <option value="Alive on ART">Alive on ART</option>
+                            <option value="DUE">Due for Refill</option>
                             <option value="LTFU">LTFU</option>
                             <option value="Deceased">Deceased</option>
                             <option value="Trans-out">Trans-out</option>
@@ -746,6 +755,29 @@
             if (window.initializeLocalRegistryControllers) {
                 await window.initializeLocalRegistryControllers();
             }
+
+            // Accept dashboard deep links for a retention filter or a specific client UIC.
+            const deepLinkParams = new URLSearchParams(window.location.search);
+            const requestedUic = deepLinkParams.get('uic');
+            const requestedRetention = deepLinkParams.get('filter-retention');
+            if (requestedRetention) {
+                const retentionSelect = document.getElementById('filter-retention');
+                const wanted = requestedRetention.trim();
+                if (retentionSelect && Array.from(retentionSelect.options).some(option => option.value.toLowerCase() === wanted.toLowerCase())) {
+                    retentionSelect.value = Array.from(retentionSelect.options).find(option => option.value.toLowerCase() === wanted.toLowerCase()).value;
+                    applyActiveRegistryFilters();
+                }
+            }
+            if (requestedUic) {
+                const normalizedUic = requestedUic.trim().toUpperCase();
+                if (normalizedUic) {
+                    window.setTimeout(() => {
+                        if (typeof window.openClientModal === 'function') window.openClientModal(normalizedUic, 'view');
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }, 150);
+                }
+            }
+            if (requestedRetention) window.history.replaceState({}, document.title, window.location.pathname);
         } catch (err) {
             const tbody = document.getElementById('master-table-body');
             if (tbody) {
@@ -1232,6 +1264,80 @@
             return String(value ?? '').trim().toLowerCase();
         }
 
+        // VL eligibility follows vl.html: EDATE(ART Initiation Date, 6) <= reporting month-end
+        // AND Current ART Outcome is Alive on ARV. "Up to date" additionally requires
+        // a latest VL assessment within the rolling 12-month reporting window.
+        function parseRegistryDate(value) {
+            if (value === null || value === undefined || String(value).trim() === '' || String(value).trim() === '---') return null;
+            if (value instanceof Date && !Number.isNaN(value.getTime())) {
+                return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+            }
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                // Support Excel serial dates as well as ordinary date strings.
+                const excelDate = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
+                if (!Number.isNaN(excelDate.getTime())) return new Date(excelDate.getUTCFullYear(), excelDate.getUTCMonth(), excelDate.getUTCDate());
+            }
+            const text = String(value).trim();
+            let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+            if (match) {
+                const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+                return date.getFullYear() === Number(match[1]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[3]) ? date : null;
+            }
+            match = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+            if (match) {
+                const first = Number(match[1]), second = Number(match[2]), year = Number(match[3]);
+                const month = first > 12 ? second : first;
+                const day = first > 12 ? first : second;
+                const date = new Date(year, month - 1, day);
+                return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+            }
+            const parsed = new Date(text);
+            return Number.isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+        }
+
+        function addRegistryMonthsExcel(date, months) {
+            if (!date) return null;
+            const targetFirst = new Date(date.getFullYear(), date.getMonth() + months, 1);
+            const lastDay = new Date(targetFirst.getFullYear(), targetFirst.getMonth() + 1, 0).getDate();
+            return new Date(targetFirst.getFullYear(), targetFirst.getMonth(), Math.min(date.getDate(), lastDay));
+        }
+
+        function resolveRegistryVlEligibility(registryData, demoData) {
+            const source = { ...(demoData || {}), ...(registryData || {}) };
+            const rawOutcome = registryData?.retentionStatus || demoData?.outcome || demoData?.retentionStatus || '';
+            const normalizedOutcome = String(rawOutcome).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            const aliveOnArt = ['aliveonarv', 'aliveonart'].includes(normalizedOutcome);
+
+            const artDate = parseRegistryDate(
+                registryData?.artEnrollmentDate || registryData?.artDate || demoData?.artDate ||
+                registryData?.['DATE ENROLLED TO ART'] || demoData?.['DATE ENROLLED TO ART']
+            );
+
+            // Use the most recent assessment date available in the saved VL history or mapped field.
+            const vlDateCandidates = [
+                registryData?.vlAssessmentDate, registryData?.latestVlDate, registryData?.vlDate,
+                demoData?.vlAssessmentDate, demoData?.latestVlDate, demoData?.vlDate,
+                registryData?.['VIRAL LOADD ASSESMENT TEST DATE'], demoData?.['VIRAL LOADD ASSESMENT TEST DATE'],
+                registryData?.['Latest VL: Date'], demoData?.['Latest VL: Date']
+            ];
+            const vlLogs = [
+                ...(Array.isArray(registryData?.vlLogs) ? registryData.vlLogs : []),
+                ...(Array.isArray(demoData?.vlLogs) ? demoData.vlLogs : [])
+            ];
+            vlLogs.forEach(log => vlDateCandidates.push(log?.date));
+            const vlDates = vlDateCandidates.map(parseRegistryDate).filter(Boolean);
+            const latestVlDate = vlDates.length ? vlDates.reduce((latest, date) => date > latest ? date : latest) : null;
+
+            const now = new Date();
+            const referencePeriod = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const windowStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+            const eligibilityDate = addRegistryMonthsExcel(artDate, 6);
+            const eligible = aliveOnArt && !!eligibilityDate && eligibilityDate <= referencePeriod;
+            const upToDate = eligible && !!latestVlDate && latestVlDate >= windowStart && latestVlDate <= referencePeriod;
+
+            return { eligible, upToDate };
+        }
+
         function resolveRegistryVlStatus(data) {
             const existing = String(data?.vlStatus ?? '').trim();
             if (existing && !['unknown', '---', 'n/a', 'na'].includes(existing.toLowerCase())) {
@@ -1251,12 +1357,63 @@
             return 'Unknown';
         }
 
+        // Calculate Section V refill status from the same saved inputs used by dbv3's refill tracker.
+        // DUE is a refill-follow-up subset of Alive on ART; it does not replace the ART outcome.
+        function resolveSectionVRefillStatus(registryData, demoData) {
+            const source = { ...(demoData || {}), ...(registryData || {}) };
+            if (!Array.isArray(source.refillLogs) && Array.isArray(demoData?.refillLogs)) source.refillLogs = demoData.refillLogs;
+            if (!source.dispenseDate) source.dispenseDate = demoData?.dispenseDate || '';
+            if (source.pillsDispensed === undefined || source.pillsDispensed === null || source.pillsDispensed === '') source.pillsDispensed = demoData?.pillsDispensed ?? '';
+
+            const logs = Array.isArray(source.refillLogs) ? source.refillLogs.map(log => ({
+                date: String(log?.date || '').slice(0, 10),
+                pills: Number(log?.pills) || 0
+            })).filter(log => /^\d{4}-\d{2}-\d{2}$/.test(log.date) && log.pills > 0) : [];
+
+            const currentDate = String(source.dispenseDate || '').slice(0, 10);
+            const currentPills = Number.parseInt(source.pillsDispensed, 10) || 0;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(currentDate) && currentPills > 0 &&
+                !logs.some(log => log.date === currentDate && log.pills === currentPills)) {
+                logs.push({ date: currentDate, pills: currentPills });
+            }
+            logs.sort((a, b) => a.date.localeCompare(b.date));
+            if (!logs.length) return 'DUE';
+
+            const parseLocalDate = value => {
+                const [y, m, d] = value.split('-').map(Number);
+                return new Date(y, m - 1, d);
+            };
+            let balance = 0;
+            let pointer = null;
+            for (const log of logs) {
+                const date = parseLocalDate(log.date);
+                if (!pointer) { balance = log.pills; pointer = date; }
+                else {
+                    const days = Math.max(0, Math.floor((date - pointer) / 86400000));
+                    balance = Math.max(0, balance - days) + log.pills;
+                    pointer = date;
+                }
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            balance = Math.max(-999, balance - Math.max(0, Math.floor((today - pointer) / 86400000)));
+            return balance >= 1 ? 'ACTIVE' : (Math.abs(balance) > 30 ? 'LTFU' : 'DUE');
+        }
+
+        function normalizeRetentionOutcome(value) {
+            const normalized = normalizeFilterText(value);
+            if (normalized === 'active' || normalized === 'alive on art') return 'alive on art';
+            if (normalized === 'deceased' || normalized === 'trans-out' || normalized === 'trans out') return normalized.replace('trans out', 'trans-out');
+            return normalized;
+        }
+
         function applyActiveRegistryFilters() {
             const tbody = document.getElementById('master-table-body');
             if (!tbody) return;
             const clearance = localStorage.getItem('user_clearance') || 'Viewer';
 
             const searchVal = normalizeFilterText(document.getElementById('table-search')?.value);
+            const filterVlEligibility = normalizeFilterText(document.getElementById('filter-vl-eligibility')?.value);
             const filterVl = normalizeFilterText(document.getElementById('filter-vl')?.value);
             const filterRetention = normalizeFilterText(document.getElementById('filter-retention')?.value);
             const filterStart = document.getElementById('filter-date-start')?.value || '';
@@ -1279,15 +1436,26 @@
                     if (!haystack.some(value => value.includes(searchVal))) return false;
                 }
 
+                // VL eligibility is evaluated independently from viral-load suppression status.
+                // "Up to date" means eligible AND latest VL assessment is within the last 12-month window.
+                if (filterVlEligibility) {
+                    const vlEligibility = resolveRegistryVlEligibility(data, demoData);
+                    if (filterVlEligibility === 'eligible' && !vlEligibility.eligible) return false;
+                    if (filterVlEligibility === 'up-to-date' && !vlEligibility.upToDate) return false;
+                }
+
                 // Compare case-insensitively and derive a status when older records lack vlStatus.
                 const vlStatus = normalizeFilterText(resolveRegistryVlStatus(data));
                 if (filterVl && vlStatus !== filterVl) return false;
 
-                // Some older documents store the ART outcome in demographics rather than registry.
-                const retentionStatus = normalizeFilterText(
-                    data.retentionStatus || demoData.outcome || demoData.retentionStatus || ''
-                );
-                if (filterRetention && retentionStatus !== filterRetention) return false;
+                // ART outcome is independent from refill status. DUE filters the Section V
+                // refill subset without changing the client's stored ART outcome.
+                const rawOutcome = data.retentionStatus || demoData.outcome || demoData.retentionStatus || '';
+                const retentionStatus = normalizeRetentionOutcome(rawOutcome);
+                const sectionVStatus = normalizeFilterText(resolveSectionVRefillStatus(data, demoData));
+                if (filterRetention === 'due') {
+                    if (sectionVStatus !== 'due' || !['alive on art', 'active'].includes(retentionStatus)) return false;
+                } else if (filterRetention && retentionStatus !== filterRetention) return false;
 
                 // Enrollment date can exist in either the registry or demographics payload.
                 const enrollmentDate = String(
@@ -1352,7 +1520,18 @@
                 const resolvedClientCode = registryData.generated_serial_code || demoData.generated_serial_code || '---';
                 const resolvedEnrollmentDate = registryData.artEnrollmentDate || registryData.artDate || demoData.artDate || '---';
                 const resolvedVlStatus = resolveRegistryVlStatus(registryData);
-                const resolvedRetention = registryData.retentionStatus || demoData.outcome || demoData.retentionStatus || '---';
+                const rawRetention = registryData.retentionStatus || demoData.outcome || demoData.retentionStatus || '---';
+                const normalizedRetention = normalizeRetentionOutcome(rawRetention);
+                // Preserve ART Outcome label. DUE remains a separate Section V status/filter.
+                const resolvedRetention = (normalizedRetention === 'active' || normalizedRetention === 'alive on art')
+                    ? 'Alive on ART' : rawRetention;
+                const retentionBadgeClass = ['deceased', 'trans-out'].includes(normalizeFilterText(resolvedRetention))
+                    ? 'bg-slate-100 text-slate-600 border border-slate-300'
+                    : normalizeFilterText(resolvedRetention) === 'ltfu'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : ['alive on art', 'active'].includes(normalizeFilterText(resolvedRetention))
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200';
 
                 tr.innerHTML = `
                     <td class="py-2.5 px-4 font-mono">${ohasisHtmlValueToken}</td>
@@ -1368,7 +1547,7 @@
                     </td>
                     <td class="py-2.5 px-4 font-mono text-teal-700 font-bold">${escapeHtml(rawCd4Value)}</td>
                     <td class="py-2.5 px-4">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${normalizeFilterText(resolvedRetention) === 'active' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${escapeHtml(resolvedRetention)}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${retentionBadgeClass}">${escapeHtml(resolvedRetention)}</span>
                     </td>
                     <td class="py-2.5 px-4 font-mono text-slate-600">${escapeHtml(registryData.nextRefillDate || '---')}</td>
                     <td class="py-2.5 px-4 text-center space-x-1">
@@ -1634,6 +1813,7 @@
             if (editBtn) editBtn.onclick = function() { toggleEditMode(true); };
 
             document.getElementById('table-search').addEventListener('input', applyActiveRegistryFilters);
+            document.getElementById('filter-vl-eligibility').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-vl').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-retention').addEventListener('change', applyActiveRegistryFilters);
             document.getElementById('filter-date-start').addEventListener('change', applyActiveRegistryFilters);
