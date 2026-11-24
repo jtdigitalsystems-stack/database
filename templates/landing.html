@@ -183,6 +183,9 @@
                     <button type="button" data-retention-filter="Deceased" class="retention-stat-button rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-slate-300">
                         <span class="block text-[10px] font-black uppercase tracking-wider text-slate-600">Deceased</span><span id="retention-count-deceased" class="block text-2xl leading-none font-black text-slate-800 mt-2 tabular-nums">—</span><span class="block text-[10px] text-slate-600 mt-1">Open filtered list →</span>
                     </button>
+                    <div class="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-left">
+                        <span class="block text-[10px] font-black uppercase tracking-wider text-indigo-700">Trans-out</span><span id="retention-count-transout" class="block text-2xl leading-none font-black text-indigo-800 mt-2 tabular-nums">—</span><span class="block text-[10px] text-indigo-700 mt-1">Terminal ART outcome</span>
+                    </div>
                 </div>
                 <p id="retention-mini-status" class="mt-3 text-[10px] text-slate-400">Loading retention statistics…</p>
             </div>
@@ -272,78 +275,117 @@
             }
         }
 
-        // Retention mini-dashboard: counts mirror the ART Outcome and Section V status rules in dbv3.html.
-        function dateOnly(value) {
-            if (!value) return null;
-            const parts = String(value).slice(0, 10).split('-').map(Number);
-            if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
-            return new Date(parts[0], parts[1] - 1, parts[2]);
+        // Retention mini-dashboard uses the same authoritative outcome and Section V
+        // refill classification as dbv3.html. Keep these rules synchronized.
+        function normalizeArtOutcome(value) {
+            return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         }
 
-        function localDateString(date) {
-            if (!date || Number.isNaN(date.getTime())) return '—';
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        function resolveArtOutcome(registryData, demoData) {
+            const candidates = [
+                demoData?.outcome,
+                demoData?.['ART OUTCOME'],
+                demoData?.currentArtOutcome,
+                registryData?.['ART OUTCOME'],
+                registryData?.currentArtOutcome,
+                registryData?.outcome,
+                registryData?.retentionStatus,
+                demoData?.retentionStatus
+            ];
+            for (const candidate of candidates) {
+                const value = String(candidate ?? '').trim();
+                if (value && !['---', 'n/a', 'na', 'unknown'].includes(value.toLowerCase())) return value;
+            }
+            return '';
         }
 
-        function calculateClientRefill(registry) {
-            const logs = Array.isArray(registry.refillLogs) ? registry.refillLogs
-                .map(log => ({ date: String(log.date || '').slice(0, 10), pills: Number(log.pills) || 0 }))
-                .filter(log => /^\d{4}-\d{2}-\d{2}$/.test(log.date) && log.pills > 0) : [];
-            const currentDate = String(registry.dispenseDate || '').slice(0, 10);
-            const currentPills = Number.parseInt(registry.pillsDispensed, 10) || 0;
-            if (/^\d{4}-\d{2}-\d{2}$/.test(currentDate) && currentPills > 0 && !logs.some(log => log.date === currentDate && log.pills === currentPills)) {
+        function resolveSectionVStatus(registryData, demoData) {
+            const source = { ...(demoData || {}), ...(registryData || {}) };
+            if (!Array.isArray(source.refillLogs) && Array.isArray(demoData?.refillLogs)) source.refillLogs = demoData.refillLogs;
+            if (!source.dispenseDate) source.dispenseDate = demoData?.dispenseDate || '';
+            if (source.pillsDispensed === undefined || source.pillsDispensed === null || source.pillsDispensed === '') source.pillsDispensed = demoData?.pillsDispensed ?? '';
+
+            const logs = Array.isArray(source.refillLogs) ? source.refillLogs.map(log => ({
+                date: String(log?.date || '').slice(0, 10),
+                pills: Number(log?.pills) || 0
+            })).filter(log => /^\d{4}-\d{2}-\d{2}$/.test(log.date) && log.pills > 0) : [];
+
+            const currentDate = String(source.dispenseDate || '').slice(0, 10);
+            const currentPills = Number.parseInt(source.pillsDispensed, 10) || 0;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(currentDate) && currentPills > 0 &&
+                !logs.some(log => log.date === currentDate && log.pills === currentPills)) {
                 logs.push({ date: currentDate, pills: currentPills });
             }
             logs.sort((a, b) => a.date.localeCompare(b.date));
-            if (!logs.length) return { remaining: 0, runoutDate: '—', status: 'DUE' };
-            let balance = 0, pointer = null;
+            if (!logs.length) return 'DUE';
+
+            const parseLocalDate = value => {
+                const [y, m, d] = value.split('-').map(Number);
+                return new Date(y, m - 1, d);
+            };
+            let balance = 0;
+            let pointer = null;
             for (const log of logs) {
-                const entryDate = dateOnly(log.date);
-                if (!pointer) { balance = log.pills; pointer = entryDate; }
-                else { balance = Math.max(0, balance - Math.max(0, Math.floor((entryDate - pointer) / 86400000))) + log.pills; pointer = entryDate; }
+                const date = parseLocalDate(log.date);
+                if (!pointer) { balance = log.pills; pointer = date; }
+                else {
+                    const days = Math.max(0, Math.floor((date - pointer) / 86400000));
+                    balance = Math.max(0, balance - days) + log.pills;
+                    pointer = date;
+                }
             }
-            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
             balance = Math.max(-999, balance - Math.max(0, Math.floor((today - pointer) / 86400000)));
-            const runout = new Date(today); runout.setDate(runout.getDate() + balance);
-            return { remaining: balance, runoutDate: localDateString(runout), status: balance >= 1 ? 'ACTIVE' : (Math.abs(balance) > 30 ? 'LTFU' : 'DUE') };
+            return balance >= 1 ? 'ACTIVE' : (Math.abs(balance) > 30 ? 'LTFU' : 'DUE');
         }
 
-        function normalizeOutcome(value) {
-            const v = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-            if (v === 'active' || v === 'alive on art') return 'alive';
-            if (v === 'trans out') return 'trans-out';
-            return v;
+        function resolveDashboardRetentionStatus(registryData, demoData) {
+            const rawOutcome = resolveArtOutcome(registryData, demoData);
+            const normalized = normalizeArtOutcome(rawOutcome);
+            if (['deceased', 'dead', 'died', 'deceasedclient'].includes(normalized)) return 'Deceased';
+            if (['transout', 'transferredout', 'transferout', 'transferredoutofcare', 'transferredtoanotherfacility'].includes(normalized)) return 'Trans-out';
+
+            // Match dbv3's resolveRegistryTableArtStatus exactly.
+            const sectionVStatus = resolveSectionVStatus(registryData, demoData);
+            if (sectionVStatus === 'LTFU') return 'LTFU';
+            if (sectionVStatus === 'DUE') return 'DUE';
+            if (sectionVStatus === 'ACTIVE') return 'Alive on ART';
+            return rawOutcome || '---';
         }
 
         async function loadRetentionMiniDashboard() {
             const statusNode = document.getElementById('retention-mini-status');
             try {
-                const response = await fetch('/api/art/registry', { method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } });
+                const response = await fetch('/api/art/registry', {
+                    method: 'GET', credentials: 'same-origin', cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                });
                 if (response.status === 401) { window.location.replace('{{ url_for("login_page") }}'); return; }
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok || payload.success !== true || !Array.isArray(payload.records)) throw new Error(payload.error || `Registry request failed (${response.status}).`);
-                const counts = { alive: 0, due: 0, ltfu: 0, deceased: 0 };
+                if (!response.ok || payload.success !== true || !Array.isArray(payload.records)) {
+                    throw new Error(payload.error || `Registry request failed (${response.status}).`);
+                }
+
+                const counts = { alive: 0, due: 0, ltfu: 0, deceased: 0, transOut: 0 };
                 payload.records.forEach(record => {
-                    const registry = record.registry || {}, demographics = record.demographics || {};
-                    const source = { ...demographics, ...registry };
-                    if (!Array.isArray(source.refillLogs) && Array.isArray(demographics.refillLogs)) source.refillLogs = demographics.refillLogs;
-                    if (!source.dispenseDate) source.dispenseDate = demographics.dispenseDate || '';
-                    if (source.pillsDispensed === undefined || source.pillsDispensed === null || source.pillsDispensed === '') source.pillsDispensed = demographics.pillsDispensed ?? '';
-                    const outcome = normalizeOutcome(registry.retentionStatus || demographics.outcome || demographics.retentionStatus || '');
-                    const refill = calculateClientRefill(source);
-                    if (outcome === 'deceased') counts.deceased++;
-                    else if (outcome === 'ltfu') counts.ltfu++;
-                    else if (outcome === 'alive') {
-                        // DUE is a subset of Alive on ART, so it contributes to both counts.
-                        counts.alive++;
-                        if (refill.status === 'DUE') counts.due++;
-                    }
+                    const registry = record.registry || {};
+                    const demographics = record.demographics || {};
+                    const status = resolveDashboardRetentionStatus(registry, demographics);
+                    if (status === 'Alive on ART') counts.alive++;
+                    else if (status === 'DUE') counts.due++;
+                    else if (status === 'LTFU') counts.ltfu++;
+                    else if (status === 'Deceased') counts.deceased++;
+                    else if (status === 'Trans-out') counts.transOut++;
                 });
+
                 document.getElementById('retention-count-alive').textContent = String(counts.alive);
                 document.getElementById('retention-count-due').textContent = String(counts.due);
                 document.getElementById('retention-count-ltfu').textContent = String(counts.ltfu);
                 document.getElementById('retention-count-deceased').textContent = String(counts.deceased);
-                if (statusNode) statusNode.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · Click a status to open its filtered registry.`;
+                const transOutNode = document.getElementById('retention-count-transout');
+                if (transOutNode) transOutNode.textContent = String(counts.transOut);
+                if (statusNode) statusNode.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · Statuses follow dbv3 ART Outcome and Section V rules.`;
             } catch (error) {
                 console.error('Unable to load retention mini-dashboard:', error);
                 if (statusNode) statusNode.textContent = 'Unable to load retention statistics. Refresh or check your access.';
