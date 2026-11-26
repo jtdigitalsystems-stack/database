@@ -1974,13 +1974,20 @@ def prep_save_client():
                             "duplicate": {"field": "Client Code", "value": serial, "existing_uic": match.id}
                         }), 409
 
+        
         demo_ref = db.collection("prep_demographics").document(normalized)
         reg_ref = db.collection("prep_registry").document(normalized)
 
         audit_action = "UPDATE" if (existing_demo.exists or existing_reg.exists) else "CREATE"
+
+        # Initialize Firestore batch
+        batch = db.batch()
+
+        # Save both records atomically
         batch.set(demo_ref, demographics, merge=True)
         batch.set(reg_ref, registry, merge=True)
         batch.commit()
+
 
         prep_audit(db, context, audit_action, normalized)
         return jsonify({
@@ -1992,11 +1999,19 @@ def prep_save_client():
             "success": False,
             "error": str(exc)
         }), 400
-    except Exception:
-        return jsonify({
-            "success": False,
-            "error": "Unable to save PrEP client record."
-        }), 503
+
+    except Exception as exc:
+        app.logger.exception(
+        "PREP SAVE FAILURE | UIC=%s | FACILITY=%s | ERROR=%r",
+        normalized,
+        context.get("facility_id"),
+        exc
+    )
+
+    return jsonify({
+        "success": False,
+        "error": "Unable to save PrEP client record."
+    }), 503
 
 
 @app.route("/api/prep/client/<uic>", methods=["DELETE"])
